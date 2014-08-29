@@ -14,6 +14,7 @@
 #include "btree/concurrent_traversal.hpp"
 #include "btree/erase_range.hpp"
 #include "btree/get_distribution.hpp"
+#include "btree/leaf_node.hpp"
 #include "btree/operations.hpp"
 #include "btree/parallel_traversal.hpp"
 #include "btree/slice.hpp"

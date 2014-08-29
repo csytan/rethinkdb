@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include "btree/leaf_node.hpp"
 #include "btree/node.hpp"
 #include "buffer_cache/alt/alt.hpp"
 #include "concurrency/fifo_enforcer.hpp"
