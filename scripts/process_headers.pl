@@ -54,7 +54,7 @@ my %boosts;
 sub callback {
     my $path = $File::Find::name;
 
-    if ($path !~ /\.(cc|hpp|tcc)/) {
+    if ($path !~ /\.(h|cc|hpp|tcc)/) {
         return;
     }
 
@@ -71,7 +71,7 @@ for my $path (@paths) {
     $boosts{$path} = {};
 
     while (<$FH>) {
-        if (/^#include\s+"(.*)"/) {
+        if (/^#include\s+"(.*)"/ && !/NOPROCESS/) {
             my $header = $1;
             $header =~ s!^!./!;
             $header =~ s!^\./\./!./!;
@@ -107,9 +107,9 @@ sub traverse ($$$) {
             my $prev = $parents->[-1];
             my $untrunc_prev;
 
-            $tmp =~ s/\.(tcc|hpp)$/\./;
+            $tmp =~ s/\.(tcc|hpp|h)$/\./;
             if ($1 eq 'tcc') {
-                $prev =~ s/\.hpp$/\./;
+                $prev =~ s/\.(hpp|h)$/\./;
             } else {
                 $prev =~ s/\.tcc$/\./;
             }
