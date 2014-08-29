@@ -1655,21 +1655,19 @@ std::pair<const btree_key_t *, const void *> iterator::operator*() const {
     return std::make_pair(entry_key(entree), entry_value(entree));
 }
 
-iterator &iterator::operator++() {
+void iterator::operator++() {
     guarantee(index_ < static_cast<int>(node_->num_pairs),
               "Trying to increment past the end of an iterator.");
     do {
         ++index_;
     } while (index_ < node_->num_pairs && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
-    return *this;
 }
 
-iterator &iterator::operator--() {
+void iterator::operator--() {
     guarantee(index_ > -1, "Trying to decrement past the beginning of an iterator.");
     do {
         --index_;
     } while (index_ >= 0 && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
-    return *this;
 }
 
 bool iterator::operator==(const iterator &other) const {
@@ -1689,14 +1687,12 @@ std::pair<const btree_key_t *, const void *> reverse_iterator::operator*() const
     return *inner_;
 }
 
-reverse_iterator &reverse_iterator::operator++() {
+void reverse_iterator::operator++() {
     --inner_;
-    return *this;
 }
 
-reverse_iterator &reverse_iterator::operator--() {
+void reverse_iterator::operator--() {
     ++inner_;
-    return *this;
 }
 
 bool reverse_iterator::operator==(const reverse_iterator &other) const {
@@ -1708,7 +1704,9 @@ bool reverse_iterator::operator!=(const reverse_iterator &other) const {
 
 
 leaf::iterator begin(const leaf_node_t *leaf_node) {
-    return ++leaf::iterator(leaf_node, -1);
+    leaf::iterator ret(leaf_node, -1);
+    ++ret;
+    return ret;
 }
 
 leaf::iterator end(const leaf_node_t *leaf_node) {
@@ -1716,7 +1714,9 @@ leaf::iterator end(const leaf_node_t *leaf_node) {
 }
 
 leaf::reverse_iterator rbegin(const leaf_node_t *leaf_node) {
-    return ++leaf::reverse_iterator(leaf_node, leaf_node->num_pairs);
+    leaf::reverse_iterator ret(leaf_node, leaf_node->num_pairs);
+    ++ret;
+    return ret;
 }
 
 leaf::reverse_iterator rend(const leaf_node_t *leaf_node) {
@@ -1730,7 +1730,9 @@ leaf::iterator inclusive_lower_bound(const btree_key_t *key, const leaf_node_t *
         entry_is_live(leaf::get_entry(leaf_node, leaf_node->pair_offsets[index]))) {
         return leaf::iterator(leaf_node, index);
     } else {
-        return ++leaf::iterator(leaf_node, index);
+        leaf::iterator ret(leaf_node, index);
+        ++ret;
+        return ret;
     }
 }
 
@@ -1746,7 +1748,9 @@ leaf::reverse_iterator inclusive_upper_bound(const btree_key_t *key, const leaf_
         }
     }
 
-    return ++leaf::reverse_iterator(leaf_node, index);
+    leaf::reverse_iterator ret(leaf_node, index);
+    ++ret;
+    return ret;
 }
 
 }  // namespace leaf
