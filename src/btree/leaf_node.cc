@@ -1691,10 +1691,6 @@ void reverse_iterator::step() {
     inner_.step_backwards();
 }
 
-void reverse_iterator::step_backwards() {
-    inner_.step();
-}
-
 bool reverse_iterator::operator==(const reverse_iterator &other) const {
     return inner_ == other.inner_;
 }
