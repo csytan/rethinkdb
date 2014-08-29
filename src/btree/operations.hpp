@@ -121,36 +121,6 @@ private:
 };
 
 
-// KSI: This type is stupid because the only subclass is
-// null_key_modification_callback_t?
-class key_modification_callback_t {
-public:
-    // Perhaps this modifies the kv_loc in place, swapping in its own
-    // scoped_malloc_t.  It's the caller's responsibility to have
-    // destroyed any blobs that the value might reference, before
-    // calling this here, so that this callback can reacquire them.
-    virtual key_modification_proof_t value_modification(keyvalue_location_t *kv_loc, const btree_key_t *key) = 0;
-
-    key_modification_callback_t() { }
-protected:
-    virtual ~key_modification_callback_t() { }
-private:
-    DISABLE_COPYING(key_modification_callback_t);
-};
-
-
-
-
-class null_key_modification_callback_t : public key_modification_callback_t {
-    key_modification_proof_t
-    value_modification(UNUSED keyvalue_location_t *kv_loc,
-                       UNUSED const btree_key_t *key) {
-        // do nothing
-        return key_modification_proof_t::real_proof();
-    }
-};
-
-
 /* This iterator encapsulates most of the metainfo data layout. Unfortunately,
  * functions set_superblock_metainfo and delete_superblock_metainfo also know a
  * lot about the data layout, so if it's changed, these functions must be
@@ -280,7 +250,6 @@ void apply_keyvalue_change(
         value_sizer_t *sizer,
         keyvalue_location_t *kv_loc,
         const btree_key_t *key, repli_timestamp_t tstamp,
-        const value_deleter_t *detacher,
-        key_modification_callback_t *km_callback);
+        const value_deleter_t *detacher);
 
 #endif  // BTREE_OPERATIONS_HPP_

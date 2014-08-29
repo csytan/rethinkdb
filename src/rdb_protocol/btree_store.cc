@@ -698,8 +698,7 @@ void store_t::clear_sindex(
                     leaf::remove(sizer,
                                  leaf_node,
                                  keys[i].btree_key(),
-                                 repli_timestamp_t::distant_past,
-                                 key_modification_proof_t::real_proof());
+                                 repli_timestamp_t::distant_past);
                 }
                 check_and_handle_underfull(sizer, &kv_location.buf,
                         &kv_location.last_buf, kv_location.superblock,

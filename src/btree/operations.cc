@@ -975,11 +975,7 @@ void apply_keyvalue_change(
         value_sizer_t *sizer,
         keyvalue_location_t *kv_loc,
         const btree_key_t *key, repli_timestamp_t tstamp,
-        const value_deleter_t *detacher,
-        key_modification_callback_t *km_callback) {
-    key_modification_proof_t km_proof
-        = km_callback->value_modification(kv_loc, key);
-
+        const value_deleter_t *detacher) {
     /* how much this keyvalue change affects the total population of the btree
      * (should be -1, 0 or 1) */
     int population_change;
@@ -1016,8 +1012,7 @@ void apply_keyvalue_change(
                          leaf_node,
                          key,
                          kv_loc->value.get(),
-                         tstamp,
-                         km_proof);
+                         tstamp);
         }
 
         kv_loc->stats->pm_keys_set.record();
@@ -1032,8 +1027,7 @@ void apply_keyvalue_change(
                 leaf::remove(sizer,
                              leaf_node,
                              key,
-                             tstamp,
-                             km_proof);
+                             tstamp);
             }
             population_change = -1;
             kv_loc->stats->pm_keys_set.record();

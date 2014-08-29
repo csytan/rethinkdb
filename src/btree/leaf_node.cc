@@ -1472,7 +1472,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *
 // Inserts a key/value pair into the node.  Hopefully you've already
 // cleaned up the old value, if there is one.
 template <class leaf_node_type>
-void insert(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp, UNUSED key_modification_proof_t km_proof) {
+void insert(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
     rassert(!is_full(sizer, node, key, value));
 
     /* Make space for the entry itself */
@@ -1495,8 +1495,8 @@ void insert(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, 
     validate(sizer, node);
 }
 
-void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp, key_modification_proof_t km_proof) {
-    insert<leaf_node_t>(sizer, node, key, value, tstamp, km_proof);
+void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
+    insert<leaf_node_t>(sizer, node, key, value, tstamp);
 }
 
 
@@ -1504,7 +1504,7 @@ void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, con
 // already sure the key is in the node, which means we're doing an
 // unnecessary binary search.
 template <class leaf_node_type>
-void remove(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, repli_timestamp_t tstamp, UNUSED key_modification_proof_t km_proof) {
+void remove(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, repli_timestamp_t tstamp) {
     /* Confirm that the key is already in the node */
     DEBUG_VAR int index;
     rassert(find_key(node, key, &index), "remove() called on key that's not in node");
@@ -1530,14 +1530,14 @@ void remove(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, 
     validate(sizer, node);
 }
 
-void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp, key_modification_proof_t km_proof) {
-    remove<leaf_node_t>(sizer, node, key, tstamp, km_proof);
+void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp) {
+    remove<leaf_node_t>(sizer, node, key, tstamp);
 }
 
 
 // Erases the entry for the given key, leaving behind no trace.
 template <class leaf_node_type>
-void erase_presence(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, UNUSED key_modification_proof_t km_proof) {
+void erase_presence(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key) {
     int index;
     bool found = find_key(node, key, &index);
 
@@ -1561,8 +1561,8 @@ void erase_presence(value_sizer_t *sizer, leaf_node_type *node, const btree_key_
     validate(sizer, node);
 }
 
-void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, key_modification_proof_t km_proof) {
-    erase_presence<leaf_node_t>(sizer, node, key, km_proof);
+void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key) {
+    erase_presence<leaf_node_t>(sizer, node, key);
 }
 
 template <class leaf_node_type>

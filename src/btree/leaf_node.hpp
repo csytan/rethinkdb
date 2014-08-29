@@ -13,22 +13,6 @@ class value_sizer_t;
 struct btree_key_t;
 class repli_timestamp_t;
 
-// TODO: Could key_modification_proof_t not go in this file?
-
-// Originally we thought that leaf node modification functions would
-// take a key-modification callback, thus forcing every key/value
-// modification to consider the callback.  The problem is that the
-// user is supposed to call is_full before calling insert, and is_full
-// depends on the value size and can cause a split to happen.  But
-// what if the key modification then wants to change the value size?
-// Then we would need to redo the logic considering whether we want to
-// split the leaf node.  Instead the caller just provides evidence
-// that they considered doing the appropriate value modifications, by
-// constructing one of these dummy values.
-class key_modification_proof_t {
-public:
-    static key_modification_proof_t real_proof() { return key_modification_proof_t(); }
-};
 
 struct leaf_node_t;
 
@@ -114,11 +98,11 @@ bool find_key(const leaf_node_t *node, const btree_key_t *key, int *index_out);
 
 bool lookup(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, void *value_out);
 
-void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp, key_modification_proof_t km_proof);
+void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp);
 
-void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp, key_modification_proof_t km_proof);
+void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp);
 
-void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, key_modification_proof_t km_proof);
+void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key);
 
 class entry_reception_callback_t {
 public:

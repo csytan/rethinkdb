@@ -63,8 +63,7 @@ public:
             }
 
             deleter_->delete_value(buf_parent_t(leaf_node_buf), value.get());
-            leaf::erase_presence(sizer_, node, keys_to_delete[i].btree_key(),
-                                 key_modification_proof_t::real_proof());
+            leaf::erase_presence(sizer_, node, keys_to_delete[i].btree_key());
             --population_change;
         }
 
