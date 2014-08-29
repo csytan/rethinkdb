@@ -1655,7 +1655,7 @@ std::pair<const btree_key_t *, const void *> iterator::get() const {
     return std::make_pair(entry_key(entree), entry_value(entree));
 }
 
-void iterator::operator++() {
+void iterator::step() {
     guarantee(index_ < static_cast<int>(node_->num_pairs),
               "Trying to increment past the end of an iterator.");
     do {
@@ -1663,7 +1663,7 @@ void iterator::operator++() {
     } while (index_ < node_->num_pairs && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
 }
 
-void iterator::operator--() {
+void iterator::step_backwards() {
     guarantee(index_ > -1, "Trying to decrement past the beginning of an iterator.");
     do {
         --index_;
@@ -1687,12 +1687,12 @@ std::pair<const btree_key_t *, const void *> reverse_iterator::get() const {
     return inner_.get();
 }
 
-void reverse_iterator::operator++() {
-    --inner_;
+void reverse_iterator::step() {
+    inner_.step_backwards();
 }
 
-void reverse_iterator::operator--() {
-    ++inner_;
+void reverse_iterator::step_backwards() {
+    inner_.step();
 }
 
 bool reverse_iterator::operator==(const reverse_iterator &other) const {
@@ -1705,7 +1705,7 @@ bool reverse_iterator::operator!=(const reverse_iterator &other) const {
 
 leaf::iterator begin(const leaf_node_t *leaf_node) {
     leaf::iterator ret(leaf_node, -1);
-    ++ret;
+    ret.step();
     return ret;
 }
 
@@ -1715,7 +1715,7 @@ leaf::iterator end(const leaf_node_t *leaf_node) {
 
 leaf::reverse_iterator rbegin(const leaf_node_t *leaf_node) {
     leaf::reverse_iterator ret(leaf_node, leaf_node->num_pairs);
-    ++ret;
+    ret.step();
     return ret;
 }
 
@@ -1731,7 +1731,7 @@ leaf::iterator inclusive_lower_bound(const btree_key_t *key, const leaf_node_t *
         return leaf::iterator(leaf_node, index);
     } else {
         leaf::iterator ret(leaf_node, index);
-        ++ret;
+        ret.step();
         return ret;
     }
 }
@@ -1749,7 +1749,7 @@ leaf::reverse_iterator inclusive_upper_bound(const btree_key_t *key, const leaf_
     }
 
     leaf::reverse_iterator ret(leaf_node, index);
-    ++ret;
+    ret.step();
     return ret;
 }
 

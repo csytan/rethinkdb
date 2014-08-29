@@ -1561,7 +1561,7 @@ public:
         const int MAX_CHUNK_SIZE = 10;
         int current_chunk_size = 0;
         const rdb_post_construction_deletion_context_t deletion_context;
-        for (auto it = leaf::begin(leaf_node); it != leaf::end(leaf_node); ++it) {
+        for (auto it = leaf::begin(leaf_node); it != leaf::end(leaf_node); it.step()) {
             if (current_chunk_size == 0) {
                 // Start a write transaction and acquire the secondary index
                 // at the beginning of each chunk. We reset the transaction

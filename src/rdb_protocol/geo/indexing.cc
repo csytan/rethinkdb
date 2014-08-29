@@ -142,7 +142,7 @@ void geo_index_traversal_helper_t::process_a_leaf(buf_lock_t *leaf_node_buf,
     buf_read_t read(leaf_node_buf);
     const leaf_node_t *node = static_cast<const leaf_node_t *>(read.get_data_read());
 
-    for (auto it = leaf::begin(node); it != leaf::end(node); ++it) {
+    for (auto it = leaf::begin(node); it != leaf::end(node); it.step()) {
         const btree_key_t *key = it.get().first;
         if (abort_ || !key) {
             break;

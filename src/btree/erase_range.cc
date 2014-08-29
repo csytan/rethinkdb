@@ -34,7 +34,7 @@ public:
 
         std::vector<store_key_t> keys_to_delete;
 
-        for (auto it = leaf::begin(node); it != leaf::end(node); ++it) {
+        for (auto it = leaf::begin(node); it != leaf::end(node); it.step()) {
             const btree_key_t *k = it.get().first;
             if (!k) {
                 break;
