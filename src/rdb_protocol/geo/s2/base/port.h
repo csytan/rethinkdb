@@ -769,7 +769,7 @@ typedef short int16_t;
 #endif  // COMPILER_MSVC
 
 #ifdef STL_MSVC  // not always the same as COMPILER_MSVC
-#include "rdb_protocol/geo/s2/base/port_hash.h"
+#include "rdb_protocol/geo/s2/base/port_hash.h"  // NOPROCESS
 #else
 struct PortableHashBase { };
 #endif
