@@ -145,7 +145,7 @@ class iterator {
 public:
     iterator();
     iterator(const leaf_node_t *node, int index);
-    std::pair<const btree_key_t *, const void *> operator*() const;
+    std::pair<const btree_key_t *, const void *> get() const;
     void operator++();
     void operator--();
     bool operator==(const iterator &other) const;
@@ -159,7 +159,7 @@ class reverse_iterator {
 public:
     reverse_iterator();
     reverse_iterator(const leaf_node_t *node, int index);
-    std::pair<const btree_key_t *, const void *> operator*() const;
+    std::pair<const btree_key_t *, const void *> get() const;
     void operator++();
     void operator--();
     bool operator==(const reverse_iterator &other) const;

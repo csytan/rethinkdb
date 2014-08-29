@@ -1616,8 +1616,8 @@ public:
             store_->btree->stats.pm_total_keys_read += 1;
 
             /* Grab relevant values from the leaf node. */
-            const btree_key_t *key = (*it).first;
-            const void *value = (*it).second;
+            const btree_key_t *key = it.get().first;
+            const void *value = it.get().second;
             guarantee(key);
 
             const store_key_t pk(key);

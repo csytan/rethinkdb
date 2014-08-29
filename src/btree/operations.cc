@@ -417,7 +417,7 @@ void detach_all_children(const node_t *node, buf_parent_t parent,
         const leaf_node_t *leaf = reinterpret_cast<const leaf_node_t *>(node);
         // Detach the values that are now in `rbuf` with `buf` as their parent.
         for (auto it = leaf::begin(leaf); it != leaf::end(leaf); ++it) {
-            detacher->delete_value(parent, (*it).second);
+            detacher->delete_value(parent, it.get().second);
         }
     } else {
         const internal_node_t *internal =

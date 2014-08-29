@@ -136,13 +136,13 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
         if (direction == FORWARD) {
             for (auto it = leaf::inclusive_lower_bound(range.left.btree_key(), lnode);
                  it != leaf::end(lnode); ++it) {
-                key = (*it).first;
+                key = it.get().first;
                 if (!range.right.unbounded &&
                     btree_key_cmp(key, range.right.key.btree_key()) >= 0) {
                     break;
                 }
                 if (done_traversing_t::YES
-                    == cb->handle_pair(scoped_key_value_t(key, (*it).second,
+                    == cb->handle_pair(scoped_key_value_t(key, it.get().second,
                                                           movable_t<counted_buf_lock_t>(block),
                                                           movable_t<counted_buf_read_t>(read)))) {
                     return false;
@@ -156,14 +156,14 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
                 it = leaf::inclusive_upper_bound(range.right.key.btree_key(), lnode);
             }
             for (/* assignment above */; it != leaf::rend(lnode); ++it) {
-                key = (*it).first;
+                key = it.get().first;
 
                 if (btree_key_cmp(key, range.left.btree_key()) <= 0) {
                     break;
                 }
 
                 if (done_traversing_t::YES
-                    == cb->handle_pair(scoped_key_value_t(key, (*it).second,
+                    == cb->handle_pair(scoped_key_value_t(key, it.get().second,
                                                           movable_t<counted_buf_lock_t>(block),
                                                           movable_t<counted_buf_read_t>(read)))) {
                     return false;

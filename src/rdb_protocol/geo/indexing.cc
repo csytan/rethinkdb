@@ -143,14 +143,14 @@ void geo_index_traversal_helper_t::process_a_leaf(buf_lock_t *leaf_node_buf,
     const leaf_node_t *node = static_cast<const leaf_node_t *>(read.get_data_read());
 
     for (auto it = leaf::begin(node); it != leaf::end(node); ++it) {
-        const btree_key_t *key = (*it).first;
+        const btree_key_t *key = it.get().first;
         if (abort_ || !key) {
             break;
         }
 
         const S2CellId key_cell = btree_key_to_s2cellid(key);
         if (any_query_cell_intersects(key_cell.range_min(), key_cell.range_max())) {
-            on_candidate(key, (*it).second, buf_parent_t(leaf_node_buf), interruptor);
+            on_candidate(key, it.get().second, buf_parent_t(leaf_node_buf), interruptor);
         }
     }
 }

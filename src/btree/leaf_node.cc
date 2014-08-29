@@ -1648,7 +1648,7 @@ iterator::iterator()
 iterator::iterator(const leaf_node_t *node, int index)
     : node_(node), index_(index) { }
 
-std::pair<const btree_key_t *, const void *> iterator::operator*() const {
+std::pair<const btree_key_t *, const void *> iterator::get() const {
     guarantee(index_ < static_cast<int>(node_->num_pairs));
     guarantee(index_ >= 0);
     const entry_t *entree = get_entry(node_, node_->pair_offsets[index_]);
@@ -1683,8 +1683,8 @@ reverse_iterator::reverse_iterator() { }
 reverse_iterator::reverse_iterator(const leaf_node_t *node, int index)
     : inner_(node, index) { }
 
-std::pair<const btree_key_t *, const void *> reverse_iterator::operator*() const {
-    return *inner_;
+std::pair<const btree_key_t *, const void *> reverse_iterator::get() const {
+    return inner_.get();
 }
 
 void reverse_iterator::operator++() {
