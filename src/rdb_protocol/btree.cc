@@ -55,13 +55,13 @@ int rdb_value_sizer_t::max_possible_size() const {
     return blob::btree_maxreflen;
 }
 
-block_magic_t rdb_value_sizer_t::leaf_magic() {
+block_magic_t rdb_value_sizer_t::leaf_magic_v1() {
     block_magic_t magic = { { 'r', 'd', 'b', 'l' } };
     return magic;
 }
 
-block_magic_t rdb_value_sizer_t::btree_leaf_magic() const {
-    return leaf_magic();
+block_magic_t rdb_value_sizer_t::btree_leaf_magic_v1() const {
+    return leaf_magic_v1();
 }
 
 max_block_size_t rdb_value_sizer_t::block_size() const { return block_size_; }
