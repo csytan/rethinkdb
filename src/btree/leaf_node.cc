@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <set>
 
-#include "btree/leaf_node_struct.hpp"
+#include "btree/leaf_structure.hpp"
 #include "btree/node.hpp"
 #include "repli_timestamp.hpp"
 #include "utils.hpp"

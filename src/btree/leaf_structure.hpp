@@ -1,6 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#ifndef BTREE_LEAF_NODE_STRUCT_HPP_
-#define BTREE_LEAF_NODE_STRUCT_HPP_
+#ifndef BTREE_LEAF_STRUCTURE_HPP_
+#define BTREE_LEAF_STRUCTURE_HPP_
 
 #include <stdint.h>
 
@@ -33,4 +33,4 @@ struct leaf_node_t {
 
 
 
-#endif  // BTREE_LEAF_NODE_STRUCT_HPP_
+#endif  // BTREE_LEAF_STRUCTURE_HPP_
