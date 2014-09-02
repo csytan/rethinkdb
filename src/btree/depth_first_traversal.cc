@@ -3,6 +3,7 @@
 
 #include "btree/internal_node.hpp"
 #include "btree/leaf_node.hpp"
+#include "btree/node.hpp"
 #include "btree/operations.hpp"
 #include "rdb_protocol/profile.hpp"
 

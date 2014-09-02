@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "backfill_progress.hpp"
+#include "btree/node.hpp"
 #include "concurrency/auto_drainer.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/changes.hpp"

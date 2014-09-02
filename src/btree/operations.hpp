@@ -6,9 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "btree/node.hpp"
 #include "buffer_cache/alt/alt.hpp"
-#include "concurrency/fifo_enforcer.hpp"
 #include "concurrency/promise.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "containers/scoped.hpp"
@@ -19,9 +17,11 @@ namespace profile {
 class trace_t;
 }
 
+struct btree_key_t;
 class btree_slice_t;
 class binary_blob_t;
 class value_deleter_t;
+class value_sizer_t;
 
 template <class> class promise_t;
 
