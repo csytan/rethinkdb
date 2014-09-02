@@ -4,6 +4,7 @@
 #include "btree/leaf_node.hpp"
 #include "btree/internal_node.hpp"
 
+const block_magic_t btree_leaf_magic_v1 = { { 'r', 'd', 'b', 'l' } };
 const block_magic_t btree_superblock_t::expected_magic = { { 's', 'u', 'p', 'e' } };
 const block_magic_t internal_node_t::expected_magic = { { 'i', 'n', 't', 'e' } };
 

@@ -15,6 +15,8 @@
 #include "serializer/types.hpp"
 #include "version.hpp"
 
+extern const block_magic_t btree_leaf_magic_v1;
+
 class value_sizer_t {
 public:
     value_sizer_t() { }
@@ -23,7 +25,6 @@ public:
     virtual int size(const void *value) const = 0;
     virtual bool fits(const void *value, int length_available) const = 0;
     virtual int max_possible_size() const = 0;
-    virtual block_magic_t btree_leaf_magic_v1() const = 0;
     virtual max_block_size_t block_size() const = 0;
 
 private:

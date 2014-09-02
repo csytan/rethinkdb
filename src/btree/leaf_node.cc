@@ -319,7 +319,7 @@ bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const
 
     static_assert(std::is_same<leaf_node_type, leaf_node_t>::value,
                   "Code has a btree_leaf_magic_v1 assumption here.");
-    if (failed(node->magic == sizer->btree_leaf_magic_v1(),
+    if (failed(node->magic == btree_leaf_magic_v1,
                "bad leaf magic")
         || failed(node->frontmost >= offsetof(leaf_node_type, pair_offsets) + node->num_pairs * sizeof(uint16_t),
                   "frontmost offset is before the end of pair_offsets")
@@ -454,7 +454,7 @@ void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const leaf_node_t *node)
 
 void init(value_sizer_t *sizer, leaf_node_t *node) {
     // RSI: btree_leaf_magic_v1 usage here should be updated to v2.
-    node->magic = sizer->btree_leaf_magic_v1();
+    node->magic = btree_leaf_magic_v1;
     node->num_pairs = 0;
     node->live_size = 0;
     node->frontmost = sizer->block_size().value();

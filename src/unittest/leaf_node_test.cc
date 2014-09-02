@@ -29,11 +29,6 @@ public:
         return 256;
     }
 
-    block_magic_t btree_leaf_magic_v1() const {
-        block_magic_t magic = { { 's', 'h', 'L', 'F' } };
-        return magic;
-    }
-
     max_block_size_t block_size() const { return block_size_; }
 
 private:
