@@ -17,7 +17,7 @@ void btree_superblock_ct_asserts() {
 namespace node {
 
 bool is_underfull(value_sizer_t *sizer, const node_t *node) {
-    if (node->magic == sizer->btree_leaf_magic()) {
+    if (is_leaf(node)) {
         return leaf::is_underfull(sizer, reinterpret_cast<const leaf_node_t *>(node));
     } else {
         rassert(is_internal(node));
@@ -26,7 +26,7 @@ bool is_underfull(value_sizer_t *sizer, const node_t *node) {
 }
 
 bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling, const internal_node_t *parent) {
-    if (sizer->btree_leaf_magic() == node->magic) {
+    if (is_leaf(node)) {
         return leaf::is_mergable(sizer, reinterpret_cast<const leaf_node_t *>(node), reinterpret_cast<const leaf_node_t *>(sibling));
     } else {
         rassert(is_internal(node));
@@ -55,7 +55,7 @@ void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_nod
 
 void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const node_t *node) {
 #ifndef NDEBUG
-    if (node->magic == sizer->btree_leaf_magic()) {
+    if (is_leaf(node)) {
         leaf::validate(sizer, reinterpret_cast<const leaf_node_t *>(node));
     } else if (node->magic == internal_node_t::expected_magic) {
         internal_node::validate(sizer->block_size(), reinterpret_cast<const internal_node_t *>(node));
