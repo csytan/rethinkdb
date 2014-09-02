@@ -5,7 +5,6 @@
 #include <functional>
 
 #include "errors.hpp"
-#include "btree/node.hpp"
 #include "btree/types.hpp"
 #include "buffer_cache/types.hpp"
 
@@ -15,6 +14,7 @@ struct btree_key_t;
 class order_token_t;
 class superblock_t;
 class signal_t;
+class value_sizer_t;
 
 class key_tester_t {
 public:
