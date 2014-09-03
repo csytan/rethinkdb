@@ -135,13 +135,11 @@ int entry_size(value_sizer_t *sizer, const entry_t *p) {
     }
 }
 
-template <class leaf_node_type>
-const entry_t *get_entry(const leaf_node_type *node, int offset) {
+const entry_t *get_entry(const leaf_node_t *node, int offset) {
     return reinterpret_cast<const entry_t *>(reinterpret_cast<const char *>(node) + offset + (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0));
 }
 
-template <class leaf_node_type>
-entry_t *get_entry(leaf_node_type *node, int offset) {
+entry_t *get_entry(leaf_node_t *node, int offset) {
     return reinterpret_cast<entry_t *>(reinterpret_cast<char *>(node) + offset + (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0));
 }
 
@@ -153,11 +151,10 @@ repli_timestamp_t get_timestamp(const leaf_node_t *node, int offset) {
     return *reinterpret_cast<const repli_timestamp_t *>(reinterpret_cast<const char *>(node) + offset);
 }
 
-template <class leaf_node_type>
 struct entry_iter_t {
     int offset;
 
-    void step(value_sizer_t *sizer, const leaf_node_type *node) {
+    void step(value_sizer_t *sizer, const leaf_node_t *node) {
         rassert(!done(sizer));
 
         offset += entry_size(sizer, get_entry(node, offset)) + (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0);
@@ -169,7 +166,7 @@ struct entry_iter_t {
         return offset == bs;
     }
 
-    static entry_iter_t make(const leaf_node_type *node) {
+    static entry_iter_t make(const leaf_node_t *node) {
         entry_iter_t ret;
         ret.offset = node->frontmost;
         return ret;
@@ -193,8 +190,7 @@ void strprint_entry(std::string *out, value_sizer_t *sizer, const entry_t *entry
 }
 
 
-template <class leaf_node_type>
-std::string strprint_leaf(value_sizer_t *sizer, const leaf_node_type *node) {
+std::string strprint_leaf(value_sizer_t *sizer, const leaf_node_t *node) {
     std::string out;
     out += strprintf("Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
             node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint);
@@ -214,7 +210,7 @@ std::string strprint_leaf(value_sizer_t *sizer, const leaf_node_type *node) {
 
     out += strprintf("  By Offset:");
 
-    entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+    entry_iter_t iter = entry_iter_t::make(node);
     while (out += strprintf(" %d", iter.offset), !iter.done(sizer)) {
         out += strprintf(":");
         if (iter.offset < node->tstamp_cutpoint) {
@@ -248,8 +244,7 @@ void print_entry(FILE *fp, value_sizer_t *sizer, const entry_t *entry) {
 }
 
 
-template <class leaf_node_type>
-void print(FILE *fp, value_sizer_t *sizer, const leaf_node_type *node) {
+void print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *node) {
     fprintf(fp, "Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
             node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint);
 
@@ -270,7 +265,7 @@ void print(FILE *fp, value_sizer_t *sizer, const leaf_node_type *node) {
     fprintf(fp, "  By Offset:");
     fflush(fp);
 
-    entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+    entry_iter_t iter = entry_iter_t::make(node);
     while (fprintf(fp, " %d", iter.offset), fflush(fp), !iter.done(sizer)) {
         fprintf(fp, ":");
         fflush(fp);
@@ -295,8 +290,7 @@ class do_nothing_fscker_t : public key_value_fscker_t {
 };
 
 
-template <class leaf_node_type>
-bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const btree_key_t *right_inclusive_or_null, const leaf_node_type *node, key_value_fscker_t *fscker, std::string *msg_out) {
+bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const btree_key_t *right_inclusive_or_null, const leaf_node_t *node, key_value_fscker_t *fscker, std::string *msg_out) {
 
     struct {
         std::string *msg_out;
@@ -317,11 +311,10 @@ bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const
 
     // Basic sanity checks on fields' values.
 
-    static_assert(std::is_same<leaf_node_type, leaf_node_t>::value,
-                  "Code has a btree_leaf_magic_v1 assumption here.");
+    // RSI: Code hsa a btree_leaf_magic_v1 assumption here.
     if (failed(node->magic == btree_leaf_magic_v1,
                "bad leaf magic")
-        || failed(node->frontmost >= offsetof(leaf_node_type, pair_offsets) + node->num_pairs * sizeof(uint16_t),
+        || failed(node->frontmost >= offsetof(leaf_node_t, pair_offsets) + node->num_pairs * sizeof(uint16_t),
                   "frontmost offset is before the end of pair_offsets")
         || failed(node->live_size <= (sizer->block_size().value() - node->frontmost) + sizeof(uint16_t) * node->num_pairs,
                   "live_size is impossibly large")
@@ -347,7 +340,7 @@ bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const
         return false;
     }
 
-    entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+    entry_iter_t iter = entry_iter_t::make(node);
 
     int observed_live_size = 0;
 
@@ -447,7 +440,7 @@ void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const leaf_node_t *node)
 #ifndef NDEBUG
     do_nothing_fscker_t fits;
     std::string msg;
-    bool fscked_successfully = fsck<leaf_node_t>(sizer, NULL, NULL, node, &fits, &msg);
+    bool fscked_successfully = fsck(sizer, NULL, NULL, node, &fits, &msg);
     rassert(fscked_successfully, "%s", msg.c_str());
 #endif
 }
@@ -461,26 +454,24 @@ void init(value_sizer_t *sizer, leaf_node_t *node) {
     node->tstamp_cutpoint = node->frontmost;
 }
 
-template <class leaf_node_type>
 int free_space(value_sizer_t *sizer) {
-    return sizer->block_size().value() - offsetof(leaf_node_type, pair_offsets);
+    return sizer->block_size().value() - offsetof(leaf_node_t, pair_offsets);
 }
 
 // Returns the mandatory storage cost of the node, returning a value
 // in the closed interval [0, free_space(sizer)].  Outputs the offset
 // of the first entry for which storing a timestamp is not mandatory.
-template <class leaf_node_type>
-int mandatory_cost(value_sizer_t *sizer, const leaf_node_type *node, int required_timestamps, int *tstamp_back_offset_out) {
+int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_timestamps, int *tstamp_back_offset_out) {
     int size = node->live_size;
 
     // node->live_size does not include deletion entries, deletion
     // entries' timestamps, and live entries' timestamps.  We add that
     // to size.
 
-    entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+    entry_iter_t iter = entry_iter_t::make(node);
     int count = 0;
     int deletions_cost = 0;
-    int max_deletions_cost = free_space<leaf_node_type>(sizer) / DELETION_RESERVE_FRACTION;
+    int max_deletions_cost = free_space(sizer) / DELETION_RESERVE_FRACTION;
     while (!(count == required_timestamps || iter.done(sizer) || iter.offset >= node->tstamp_cutpoint)) {
         const entry_t *ent = get_entry(node, iter.offset);
         if (entry_is_deletion(ent)) {
@@ -505,8 +496,7 @@ int mandatory_cost(value_sizer_t *sizer, const leaf_node_type *node, int require
     return size;
 }
 
-template <class leaf_node_type>
-int mandatory_cost(value_sizer_t *sizer, const leaf_node_type *node, int required_timestamps) {
+int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_timestamps) {
     int ignored;
     return mandatory_cost(sizer, node, required_timestamps, &ignored);
 }
@@ -525,15 +515,9 @@ int leaf_epsilon(value_sizer_t *sizer) {
     return key_cost + n + pair_offsets_cost + timestamp_cost;
 }
 
-template <class leaf_node_type>
-bool is_empty(const leaf_node_type *node) {
+bool is_empty(const leaf_node_t *node) {
     return node->num_pairs == 0;
 }
-
-bool is_empty(const leaf_node_t *node) {
-    return is_empty<leaf_node_t>(node);
-}
-
 
 bool is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, const void *value) {
 
@@ -557,12 +541,10 @@ bool is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *k
     size += sizeof(uint16_t) + sizeof(repli_timestamp_t) + key->full_size() + sizer->size(value);
 
     // The node is full if we can't fit all that data within the free space.
-    return size > free_space<leaf_node_t>(sizer);
+    return size > free_space(sizer);
 }
 
-
-template <class leaf_node_type>
-bool is_underfull(value_sizer_t *sizer, const leaf_node_type *node) {
+bool is_underfull(value_sizer_t *sizer, const leaf_node_t *node) {
 
     // An underfull node is one whose mandatory fields' cost
     // constitutes significantly less than half the free space, where
@@ -578,11 +560,7 @@ bool is_underfull(value_sizer_t *sizer, const leaf_node_type *node) {
     // free_space / 2 - leaf_epsilon.  We don't want an immediately
     // split node to be underfull, hence the threshold used below.
 
-    return mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS) < free_space<leaf_node_type>(sizer) / 2 - leaf_epsilon(sizer);
-}
-
-bool is_underfull(value_sizer_t *sizer, const leaf_node_t *node) {
-    return is_underfull<leaf_node_t>(sizer, node);
+    return mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
 }
 
 
@@ -600,8 +578,7 @@ private:
 };
 
 
-template <class leaf_node_type>
-void garbage_collect(value_sizer_t *sizer, leaf_node_type *node, int num_tstamped, int *preserved_index) {
+void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped, int *preserved_index) {
     scoped_array_t<uint16_t> indices(node->num_pairs);
 
     for (int i = 0; i < node->num_pairs; ++i) {
@@ -674,8 +651,7 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_type *node, int num_tstampe
 }
 
 
-template <class leaf_node_type>
-void garbage_collect(value_sizer_t *sizer, leaf_node_type *node, int num_tstamped) {
+void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped) {
     int ignore = 0;
     garbage_collect(sizer, node, num_tstamped, &ignore);
     rassert(ignore == 0);
@@ -704,16 +680,15 @@ void clean_entry(void *p, int sz) {
 
 // Moves entries with pair_offsets indices in the clopen range [beg,
 // end) from fro to tow.
-template <class leaf_node_type>
-void move_elements(value_sizer_t *sizer, leaf_node_type *fro, int beg, int end,
-                   int wpoint, leaf_node_type *tow, int fro_copysize,
+void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
+                   int wpoint, leaf_node_t *tow, int fro_copysize,
                    int fro_mand_offset,
                    std::vector<const void *> *moved_values_out) {
     rassert(is_underfull(sizer, tow));
     rassert(end >= beg);
 
     // This assertion is a bit loose.
-    rassert(fro_copysize + mandatory_cost(sizer, tow, MANDATORY_TIMESTAMPS) <= free_space<leaf_node_type>(sizer));
+    rassert(fro_copysize + mandatory_cost(sizer, tow, MANDATORY_TIMESTAMPS) <= free_space(sizer));
 
     // Make tow have a nice big region we can copy entries to.  Also,
     // this means we have no "skip" entries in tow.
@@ -964,12 +939,11 @@ void move_elements(value_sizer_t *sizer, leaf_node_type *fro, int beg, int end,
     validate(sizer, tow);
 }
 
-template <class leaf_node_type>
-void split(value_sizer_t *sizer, leaf_node_type *node, leaf_node_type *rnode, btree_key_t *median_out) {
+void split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, btree_key_t *median_out) {
     int tstamp_back_offset;
     int mandatory = mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
-    rassert(mandatory >= free_space<leaf_node_type>(sizer) - leaf_epsilon(sizer));
+    rassert(mandatory >= free_space(sizer) - leaf_epsilon(sizer));
 
     // We shall split the mandatory cost of this node as evenly as possible.
 
@@ -1027,8 +1001,8 @@ void split(value_sizer_t *sizer, leaf_node_type *node, leaf_node_type *rnode, bt
 
     // If our math was right, neither node can be underfull just
     // considering the split of the mandatory costs.
-    rassert(end_rcost >= free_space<leaf_node_type>(sizer) / 2 - leaf_epsilon(sizer));
-    rassert(mandatory - end_rcost >= free_space<leaf_node_type>(sizer) / 2 - leaf_epsilon(sizer));
+    rassert(end_rcost >= free_space(sizer) / 2 - leaf_epsilon(sizer));
+    rassert(mandatory - end_rcost >= free_space(sizer) / 2 - leaf_epsilon(sizer));
 
     // Now we wish to move the elements at indices [s, num_pairs) to rnode.
 
@@ -1041,8 +1015,7 @@ void split(value_sizer_t *sizer, leaf_node_type *node, leaf_node_type *rnode, bt
     keycpy(median_out, entry_key(get_entry(node, node->pair_offsets[s - 1])));
 }
 
-template <class leaf_node_type>
-void merge(value_sizer_t *sizer, leaf_node_type *left, leaf_node_type *right) {
+void merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right) {
     rassert(left != right);
 
     rassert(is_underfull(sizer, left));
@@ -1063,15 +1036,9 @@ void merge(value_sizer_t *sizer, leaf_node_type *left, leaf_node_type *right) {
                   tstamp_back_offset, NULL);
 }
 
-void merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right) {
-    merge<leaf_node_t>(sizer, left, right);
-}
-
-
 // We move keys out of sibling and into node.
-template <class leaf_node_type>
 bool level(value_sizer_t *sizer, int nodecmp_node_with_sib,
-           leaf_node_type *node, leaf_node_type *sibling,
+           leaf_node_t *node, leaf_node_t *sibling,
            btree_key_t *replacement_key_out,
            std::vector<const void *> *moved_values_out) {
     rassert(node != sibling);
@@ -1182,20 +1149,6 @@ bool level(value_sizer_t *sizer, int nodecmp_node_with_sib,
     return true;
 }
 
-bool level(value_sizer_t *sizer, int nodecmp_node_with_sib, leaf_node_t *node,
-           leaf_node_t *sibling, btree_key_t *replacement_key_out,
-           std::vector<const void *> *moved_values_out) {
-    return level<leaf_node_t>(sizer, nodecmp_node_with_sib, node,
-                              sibling, replacement_key_out,
-                              moved_values_out);
-}
-
-void split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *sibling,
-           btree_key_t *median_out) {
-    split<leaf_node_t>(sizer, node, sibling, median_out);
-}
-
-
 bool is_mergable(value_sizer_t *sizer, const leaf_node_t *node, const leaf_node_t *sibling) {
     return is_underfull(sizer, node) && is_underfull(sizer, sibling);
 }
@@ -1203,8 +1156,7 @@ bool is_mergable(value_sizer_t *sizer, const leaf_node_t *node, const leaf_node_
 // Sets *index_out to the index for the live entry or deletion entry
 // for the key, or to the index the key would have if it were
 // inserted.  Returns true if the key at said index is actually equal.
-template <class leaf_node_type>
-bool find_key(const leaf_node_type *node, const btree_key_t *key, int *index_out) {
+bool find_key(const leaf_node_t *node, const btree_key_t *key, int *index_out) {
     int beg = 0;
     int end = node->num_pairs;
 
@@ -1239,12 +1191,7 @@ bool find_key(const leaf_node_type *node, const btree_key_t *key, int *index_out
     return false;
 }
 
-bool find_key(const leaf_node_t *node, const btree_key_t *key, int *index_out) {
-    return find_key<leaf_node_t>(node, key, index_out);
-}
-
-template <class leaf_node_type>
-bool lookup(value_sizer_t *sizer, const leaf_node_type *node, const btree_key_t *key, void *value_out) {
+bool lookup(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, void *value_out) {
     int index;
     if (find_key(node, key, &index)) {
         const entry_t *ent = get_entry(node, node->pair_offsets[index]);
@@ -1257,11 +1204,6 @@ bool lookup(value_sizer_t *sizer, const leaf_node_type *node, const btree_key_t 
 
     return false;
 }
-
-bool lookup(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, void *value_out) {
-    return lookup<leaf_node_t>(sizer, node, key, value_out);
-}
-
 
 /* `insert()` and `remove()` call this to insert a new entry into the leaf node.
 
@@ -1285,8 +1227,7 @@ entry, `prepare_space_for_new_entry()` will return false. It will still remove
 any preexisting entry that was in the leaf node. If the entry would go before
 `tstamp_cutpoint` or `allow_after_tstamp_cutpoint` is true, then the return
 value will be true. */
-template <class leaf_node_type>
-MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *node,
+MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *node,
         const btree_key_t *key, int new_entry_size, repli_timestamp_t tstamp,
         bool allow_after_tstamp_cutpoint,
         char **space_out) {
@@ -1323,7 +1264,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *
     /* Garbage collect if appropriate. We do it after cleaning up any existing
     entry so that deletion always works no matter how full the node is. */
 
-    if (offsetof(leaf_node_type, pair_offsets) +
+    if (offsetof(leaf_node_t, pair_offsets) +
             sizeof(uint16_t) * (node->num_pairs + (found ? 0 : 1)) +
             sizeof(repli_timestamp_t) +
             new_entry_size >
@@ -1367,7 +1308,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *
         new_entry_should_have_timestamp = true;
 
     } else {
-        entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+        entry_iter_t iter = entry_iter_t::make(node);
         while (!iter.done(sizer) && iter.offset < node->tstamp_cutpoint && get_timestamp(node, iter.offset) > tstamp) {
             iter.step(sizer, node);
         }
@@ -1445,7 +1386,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *
     }
 
     node->frontmost -= total_space_for_new_entry;
-    rassert(offsetof(leaf_node_type, pair_offsets) + sizeof(uint16_t) * node->num_pairs <= node->frontmost);
+    rassert(offsetof(leaf_node_t, pair_offsets) + sizeof(uint16_t) * node->num_pairs <= node->frontmost);
 
     /* Write the timestamp if we need one, and update `node->tstamp_cutpoint` if
     we don't. */
@@ -1475,8 +1416,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_type *
 
 // Inserts a key/value pair into the node.  Hopefully you've already
 // cleaned up the old value, if there is one.
-template <class leaf_node_type>
-void insert(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
+void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
     rassert(!is_full(sizer, node, key, value));
 
     /* Make space for the entry itself */
@@ -1499,16 +1439,10 @@ void insert(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, 
     validate(sizer, node);
 }
 
-void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
-    insert<leaf_node_t>(sizer, node, key, value, tstamp);
-}
-
-
 // This asserts that the key is in the node.  TODO: This means we're
 // already sure the key is in the node, which means we're doing an
 // unnecessary binary search.
-template <class leaf_node_type>
-void remove(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, repli_timestamp_t tstamp) {
+void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp) {
     /* Confirm that the key is already in the node */
     DEBUG_VAR int index;
     rassert(find_key(node, key, &index), "remove() called on key that's not in node");
@@ -1534,14 +1468,8 @@ void remove(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key, 
     validate(sizer, node);
 }
 
-void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp) {
-    remove<leaf_node_t>(sizer, node, key, tstamp);
-}
-
-
 // Erases the entry for the given key, leaving behind no trace.
-template <class leaf_node_type>
-void erase_presence(value_sizer_t *sizer, leaf_node_type *node, const btree_key_t *key) {
+void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key) {
     int index;
     bool found = find_key(node, key, &index);
 
@@ -1565,19 +1493,14 @@ void erase_presence(value_sizer_t *sizer, leaf_node_type *node, const btree_key_
     validate(sizer, node);
 }
 
-void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key) {
-    erase_presence<leaf_node_t>(sizer, node, key);
-}
-
-template <class leaf_node_type>
-void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_type *node, repli_timestamp_t minimum_tstamp, repli_timestamp_t maximum_possible_timestamp,  entry_reception_callback_t *cb) {
+void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_t *node, repli_timestamp_t minimum_tstamp, repli_timestamp_t maximum_possible_timestamp,  entry_reception_callback_t *cb) {
     int stop_offset = 0;
 
     // First, determine stop_offset: offset of the first [tstamp][entry] which has tstamp < minimum_tstamp
     {
         repli_timestamp_t earliest_so_far = repli_timestamp_t::invalid;
 
-        entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+        entry_iter_t iter = entry_iter_t::make(node);
         while (!iter.done(sizer) && iter.offset < node->tstamp_cutpoint) {
             repli_timestamp_t tstamp = get_timestamp(node, iter.offset);
             rassert(earliest_so_far >= tstamp, "asserted earliest_so_far (%" PRIu64 ") >= tstamp (%" PRIu64 ")", earliest_so_far.longtime, tstamp.longtime);
@@ -1604,7 +1527,7 @@ void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_type *node, r
     // Walk through all the entries starting with the the frontmost and finishing right before the one which has tstamp < minimum_tstamp
     // (if it exists). If it doesn't exist, we also walk through the non-timestamped entries.
     {
-        entry_iter_t<leaf_node_type> iter = entry_iter_t<leaf_node_type>::make(node);
+        entry_iter_t iter = entry_iter_t::make(node);
         repli_timestamp_t last_seen_tstamp = maximum_possible_timestamp;
 
         // Collect key_value pairs so we can send a bunch of them at a time.
@@ -1640,11 +1563,6 @@ void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_type *node, r
         }
     }
 }
-
-void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_t *node, repli_timestamp_t minimum_tstamp, repli_timestamp_t maximum_possible_timestamp,  entry_reception_callback_t *cb) {
-    dump_entries_since_time<leaf_node_t>(sizer, node, minimum_tstamp, maximum_possible_timestamp, cb);
-}
-
 
 iterator::iterator()
     : node_(NULL), index_(-1) { }
