@@ -8,8 +8,7 @@
 
 // The leaf node begins with the following struct layout.
 struct leaf_node_t {
-    // The value-type-specific magic value.  It's a bit of a hack, but
-    // it's possible to construct a value_sizer_t based on this value.
+    // The magic.
     block_magic_t magic;
 
     // The size of pair_offsets.
