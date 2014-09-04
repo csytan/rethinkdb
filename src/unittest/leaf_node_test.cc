@@ -326,7 +326,7 @@ TEST(LeafNodeTest, Reinserts) {
 TEST(LeafNodeTest, TenInserts) {
     LeafNodeTracker tracker;
 
-    ASSERT_LT(leaf_impl::MANDATORY_TIMESTAMPS, 10);
+    ASSERT_LT(leaf::MANDATORY_TIMESTAMPS, 10);
 
     const int num_keys = 10;
     const char *ks[num_keys] = { "the_relatively_long_key_that_is_relatively_long,_eh?__or_even_longer",
@@ -511,7 +511,7 @@ TEST(LeafNodeTest, MergingWithHugeEntries) {
     LeafNodeTracker left;
     LeafNodeTracker right;
 
-    ASSERT_EQ(10, leaf_impl::DELETION_RESERVE_FRACTION);
+    ASSERT_EQ(10, leaf::DELETION_RESERVE_FRACTION);
 
     // This test overflows the deletion reserve fraction with three
     // huge deletes.  One of them will not be merged.

@@ -11,6 +11,9 @@
 #include "repli_timestamp.hpp"
 #include "utils.hpp"
 
+namespace leaf {
+
+
 // A leaf node is a set of key/value, key/value/modification_time, and
 // key/deletion_time tuples with distinct keys, where modification
 // time or deletion time is omitted for sufficiently old entries.  A
@@ -187,7 +190,7 @@ void strprint_entry(std::string *out, value_sizer_t *sizer, const entry_t *entry
 }
 
 
-std::string leaf::strprint_leaf(value_sizer_t *sizer, const leaf_node_t *node) {
+std::string strprint_leaf(value_sizer_t *sizer, const leaf_node_t *node) {
     std::string out;
     out += strprintf("Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
             node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint);
@@ -241,7 +244,7 @@ void print_entry(FILE *fp, value_sizer_t *sizer, const entry_t *entry) {
 }
 
 
-void leaf::print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *node) {
+void print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *node) {
     fprintf(fp, "Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
             node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint);
 
@@ -279,7 +282,7 @@ void leaf::print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *node) {
 }
 
 
-class do_nothing_fscker_t : public leaf::key_value_fscker_t {
+class do_nothing_fscker_t : public key_value_fscker_t {
     bool fsck(UNUSED value_sizer_t *sizer, UNUSED const btree_key_t *key,
               UNUSED const void *value, UNUSED std::string *msg_out) {
         return true;
@@ -287,7 +290,7 @@ class do_nothing_fscker_t : public leaf::key_value_fscker_t {
 };
 
 
-bool leaf::fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const btree_key_t *right_inclusive_or_null, const leaf_node_t *node, key_value_fscker_t *fscker, std::string *msg_out) {
+bool fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null, const btree_key_t *right_inclusive_or_null, const leaf_node_t *node, key_value_fscker_t *fscker, std::string *msg_out) {
 
     struct {
         std::string *msg_out;
@@ -433,7 +436,7 @@ bool leaf::fsck(value_sizer_t *sizer, const btree_key_t *left_exclusive_or_null,
 }
 
 
-void leaf::validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const leaf_node_t *node) {
+void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const leaf_node_t *node) {
 #ifndef NDEBUG
     do_nothing_fscker_t fits;
     std::string msg;
@@ -442,7 +445,7 @@ void leaf::validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const leaf_node_t 
 #endif
 }
 
-void leaf::init(value_sizer_t *sizer, leaf_node_t *node) {
+void init(value_sizer_t *sizer, leaf_node_t *node) {
     // RSI: btree_leaf_magic_v1 usage here should be updated to v2.
     node->magic = btree_leaf_magic_v1;
     node->num_pairs = 0;
@@ -468,7 +471,7 @@ int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_t
     entry_iter_t iter = entry_iter_t::make(node);
     int count = 0;
     int deletions_cost = 0;
-    int max_deletions_cost = free_space(sizer) / leaf_impl::DELETION_RESERVE_FRACTION;
+    int max_deletions_cost = free_space(sizer) / DELETION_RESERVE_FRACTION;
     while (!(count == required_timestamps || iter.done(sizer) || iter.offset >= node->tstamp_cutpoint)) {
         const entry_t *ent = get_entry(node, iter.offset);
         if (entry_is_deletion(ent)) {
@@ -512,11 +515,11 @@ int leaf_epsilon(value_sizer_t *sizer) {
     return key_cost + n + pair_offsets_cost + timestamp_cost;
 }
 
-bool leaf::is_empty(const leaf_node_t *node) {
+bool is_empty(const leaf_node_t *node) {
     return node->num_pairs == 0;
 }
 
-bool leaf::is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, const void *value) {
+bool is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, const void *value) {
 
     // Upon an insertion, we preserve `MANDATORY_TIMESTAMPS - 1`
     // timestamps and add our own (accounted for below)
@@ -529,7 +532,7 @@ bool leaf::is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_ke
     // be garbage collected, which allows us to get into a situation where
     // is_full returns false but when we call prepare_space_for_new_entry we
     // fail with an insertion because it doesn't actually fit.
-    int size = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS);
+    int size = mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS);
 
     // Add the space we'll need for the new key/value pair we would
     // insert.  We conservatively assume the key is not already
@@ -541,7 +544,7 @@ bool leaf::is_full(value_sizer_t *sizer, const leaf_node_t *node, const btree_ke
     return size > free_space(sizer);
 }
 
-bool leaf::is_underfull(value_sizer_t *sizer, const leaf_node_t *node) {
+bool is_underfull(value_sizer_t *sizer, const leaf_node_t *node) {
 
     // An underfull node is one whose mandatory fields' cost
     // constitutes significantly less than half the free space, where
@@ -557,7 +560,7 @@ bool leaf::is_underfull(value_sizer_t *sizer, const leaf_node_t *node) {
     // free_space / 2 - leaf_epsilon.  We don't want an immediately
     // split node to be underfull, hence the threshold used below.
 
-    return mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
+    return mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
 }
 
 
@@ -644,7 +647,7 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped, 
 
     node->num_pairs = j;
 
-    leaf::validate(sizer, node);
+    validate(sizer, node);
 }
 
 
@@ -681,15 +684,15 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
                    int wpoint, leaf_node_t *tow, int fro_copysize,
                    int fro_mand_offset,
                    std::vector<const void *> *moved_values_out) {
-    rassert(leaf::is_underfull(sizer, tow));
+    rassert(is_underfull(sizer, tow));
     rassert(end >= beg);
 
     // This assertion is a bit loose.
-    rassert(fro_copysize + mandatory_cost(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS) <= free_space(sizer));
+    rassert(fro_copysize + mandatory_cost(sizer, tow, MANDATORY_TIMESTAMPS) <= free_space(sizer));
 
     // Make tow have a nice big region we can copy entries to.  Also,
     // this means we have no "skip" entries in tow.
-    garbage_collect(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS, &wpoint);
+    garbage_collect(sizer, tow, MANDATORY_TIMESTAMPS, &wpoint);
 
     // Now resize and move tow's pair_offsets.
     memmove(tow->pair_offsets + wpoint + (end - beg), tow->pair_offsets + wpoint, sizeof(uint16_t) * (tow->num_pairs - wpoint));
@@ -720,7 +723,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
 
     int wri_offset = new_frontmost;
 
-    int adjustable_tow_offsets[leaf_impl::MANDATORY_TIMESTAMPS];
+    int adjustable_tow_offsets[MANDATORY_TIMESTAMPS];
     int num_adjustable_tow_offsets = 0;
 
     // We will gradually compute the live size.
@@ -728,7 +731,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
 
     for (int i = 0; i < wpoint; ++i) {
         if (tow->pair_offsets[i] < tow->tstamp_cutpoint) {
-            rassert(num_adjustable_tow_offsets < leaf_impl::MANDATORY_TIMESTAMPS);
+            rassert(num_adjustable_tow_offsets < MANDATORY_TIMESTAMPS);
             adjustable_tow_offsets[num_adjustable_tow_offsets] = i;
             ++num_adjustable_tow_offsets;
         }
@@ -736,7 +739,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
 
     for (int i = wpoint + (end - beg); i < tow->num_pairs; ++i) {
         if (tow->pair_offsets[i] < tow->tstamp_cutpoint) {
-            rassert(num_adjustable_tow_offsets < leaf_impl::MANDATORY_TIMESTAMPS);
+            rassert(num_adjustable_tow_offsets < MANDATORY_TIMESTAMPS);
             adjustable_tow_offsets[num_adjustable_tow_offsets] = i;
             ++num_adjustable_tow_offsets;
         }
@@ -932,13 +935,13 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
         tow->num_pairs = j;
     }
 
-    leaf::validate(sizer, fro);
-    leaf::validate(sizer, tow);
+    validate(sizer, fro);
+    validate(sizer, tow);
 }
 
-void leaf::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, btree_key_t *median_out) {
+void split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, btree_key_t *median_out) {
     int tstamp_back_offset;
-    int mandatory = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
+    int mandatory = mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
     rassert(mandatory >= free_space(sizer) - leaf_epsilon(sizer));
 
@@ -1012,14 +1015,14 @@ void leaf::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, bt
     keycpy(median_out, entry_key(get_entry(node, node->pair_offsets[s - 1])));
 }
 
-void leaf::merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right) {
+void merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right) {
     rassert(left != right);
 
     rassert(is_underfull(sizer, left));
     rassert(is_underfull(sizer, right));
 
     int tstamp_back_offset;
-    int mandatory = mandatory_cost(sizer, left, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
+    int mandatory = mandatory_cost(sizer, left, MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
     int left_copysize = mandatory;
     // Uncount the uint16_t cost of mandatory  entries.  Sigh.
@@ -1034,10 +1037,10 @@ void leaf::merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right) {
 }
 
 // We move keys out of sibling and into node.
-bool leaf::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
-                 leaf_node_t *node, leaf_node_t *sibling,
-                 btree_key_t *replacement_key_out,
-                 std::vector<const void *> *moved_values_out) {
+bool level(value_sizer_t *sizer, int nodecmp_node_with_sib,
+           leaf_node_t *node, leaf_node_t *sibling,
+           btree_key_t *replacement_key_out,
+           std::vector<const void *> *moved_values_out) {
     rassert(node != sibling);
 
     // If sibling were underfull, we'd just merge the nodes.
@@ -1048,9 +1051,9 @@ bool leaf::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
     // from sibling.
     int beg, end, *w, wstep;
 
-    int node_weight = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS);
+    int node_weight = mandatory_cost(sizer, node, MANDATORY_TIMESTAMPS);
     int tstamp_back_offset;
-    int sibling_weight = mandatory_cost(sizer, sibling, leaf_impl::MANDATORY_TIMESTAMPS,
+    int sibling_weight = mandatory_cost(sizer, sibling, MANDATORY_TIMESTAMPS,
                                         &tstamp_back_offset);
 
     rassert(node_weight < sibling_weight);
@@ -1146,14 +1149,14 @@ bool leaf::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
     return true;
 }
 
-bool leaf::is_mergable(value_sizer_t *sizer, const leaf_node_t *node, const leaf_node_t *sibling) {
+bool is_mergable(value_sizer_t *sizer, const leaf_node_t *node, const leaf_node_t *sibling) {
     return is_underfull(sizer, node) && is_underfull(sizer, sibling);
 }
 
 // Sets *index_out to the index for the live entry or deletion entry
 // for the key, or to the index the key would have if it were
 // inserted.  Returns true if the key at said index is actually equal.
-bool leaf::find_key(const leaf_node_t *node, const btree_key_t *key, int *index_out) {
+bool find_key(const leaf_node_t *node, const btree_key_t *key, int *index_out) {
     int beg = 0;
     int end = node->num_pairs;
 
@@ -1188,7 +1191,7 @@ bool leaf::find_key(const leaf_node_t *node, const btree_key_t *key, int *index_
     return false;
 }
 
-bool leaf::lookup(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, void *value_out) {
+bool lookup(value_sizer_t *sizer, const leaf_node_t *node, const btree_key_t *key, void *value_out) {
     int index;
     if (find_key(node, key, &index)) {
         const entry_t *ent = get_entry(node, node->pair_offsets[index]);
@@ -1234,7 +1237,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
     already exists, clean it. */
 
     int index;
-    bool found = leaf::find_key(node, key, &index);
+    bool found = find_key(node, key, &index);
 
     if (found) {
         int offset = node->pair_offsets[index];
@@ -1280,12 +1283,12 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
         /* Passing `&index` as the last parameter to `garbage_collect()`
         guarantees that it will remain valid even as `pair_offsets` entries are
         moved around. */
-        garbage_collect(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS - 1, &index);
+        garbage_collect(sizer, node, MANDATORY_TIMESTAMPS - 1, &index);
 
         /* Make sure that `index` still refers to where the new key should be
         inserted. */
         DEBUG_VAR int index2;
-        rassert(!leaf::find_key(node, key, &index2));
+        rassert(!find_key(node, key, &index2));
         rassert(index == index2, "garbage_collect() failed to preserve index");
     }
 
@@ -1413,7 +1416,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
 
 // Inserts a key/value pair into the node.  Hopefully you've already
 // cleaned up the old value, if there is one.
-void leaf::insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
+void insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, const void *value, repli_timestamp_t tstamp) {
     rassert(!is_full(sizer, node, key, value));
 
     /* Make space for the entry itself */
@@ -1439,7 +1442,7 @@ void leaf::insert(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *ke
 // This asserts that the key is in the node.  TODO: This means we're
 // already sure the key is in the node, which means we're doing an
 // unnecessary binary search.
-void leaf::remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp) {
+void remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key, repli_timestamp_t tstamp) {
     /* Confirm that the key is already in the node */
     DEBUG_VAR int index;
     rassert(find_key(node, key, &index), "remove() called on key that's not in node");
@@ -1466,7 +1469,7 @@ void leaf::remove(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *ke
 }
 
 // Erases the entry for the given key, leaving behind no trace.
-void leaf::erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key) {
+void erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_key_t *key) {
     int index;
     bool found = find_key(node, key, &index);
 
@@ -1490,7 +1493,7 @@ void leaf::erase_presence(value_sizer_t *sizer, leaf_node_t *node, const btree_k
     validate(sizer, node);
 }
 
-void leaf::dump_entries_since_time(value_sizer_t *sizer, const leaf_node_t *node, repli_timestamp_t minimum_tstamp, repli_timestamp_t maximum_possible_timestamp,  entry_reception_callback_t *cb) {
+void dump_entries_since_time(value_sizer_t *sizer, const leaf_node_t *node, repli_timestamp_t minimum_tstamp, repli_timestamp_t maximum_possible_timestamp,  entry_reception_callback_t *cb) {
     int stop_offset = 0;
 
     // First, determine stop_offset: offset of the first [tstamp][entry] which has tstamp < minimum_tstamp
@@ -1561,20 +1564,20 @@ void leaf::dump_entries_since_time(value_sizer_t *sizer, const leaf_node_t *node
     }
 }
 
-leaf::iterator::iterator()
+iterator::iterator()
     : node_(NULL), index_(-1) { }
 
-leaf::iterator::iterator(const leaf_node_t *node, int index)
+iterator::iterator(const leaf_node_t *node, int index)
     : node_(node), index_(index) { }
 
-std::pair<const btree_key_t *, const void *> leaf::iterator::get() const {
+std::pair<const btree_key_t *, const void *> iterator::get() const {
     guarantee(index_ < static_cast<int>(node_->num_pairs));
     guarantee(index_ >= 0);
     const entry_t *entree = get_entry(node_, node_->pair_offsets[index_]);
     return std::make_pair(entry_key(entree), entry_value(entree));
 }
 
-void leaf::iterator::step() {
+void iterator::step() {
     guarantee(index_ < static_cast<int>(node_->num_pairs),
               "Trying to increment past the end of an iterator.");
     do {
@@ -1582,67 +1585,67 @@ void leaf::iterator::step() {
     } while (index_ < node_->num_pairs && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
 }
 
-void leaf::iterator::step_backwards() {
+void iterator::step_backwards() {
     guarantee(index_ > -1, "Trying to decrement past the beginning of an iterator.");
     do {
         --index_;
     } while (index_ >= 0 && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
 }
 
-bool leaf::iterator::operator==(const iterator &other) const {
+bool iterator::operator==(const iterator &other) const {
     guarantee(node_ == other.node_);
     return index_ == other.index_;
 }
-bool leaf::iterator::operator!=(const iterator &other) const {
+bool iterator::operator!=(const iterator &other) const {
     return !operator==(other);
 }
 
-leaf::reverse_iterator::reverse_iterator() { }
+reverse_iterator::reverse_iterator() { }
 
-leaf::reverse_iterator::reverse_iterator(const leaf_node_t *node, int index)
+reverse_iterator::reverse_iterator(const leaf_node_t *node, int index)
     : inner_(node, index) { }
 
-std::pair<const btree_key_t *, const void *> leaf::reverse_iterator::get() const {
+std::pair<const btree_key_t *, const void *> reverse_iterator::get() const {
     return inner_.get();
 }
 
-void leaf::reverse_iterator::step() {
+void reverse_iterator::step() {
     inner_.step_backwards();
 }
 
-bool leaf::reverse_iterator::operator==(const reverse_iterator &other) const {
+bool reverse_iterator::operator==(const reverse_iterator &other) const {
     return inner_ == other.inner_;
 }
-bool leaf::reverse_iterator::operator!=(const reverse_iterator &other) const {
+bool reverse_iterator::operator!=(const reverse_iterator &other) const {
     return !operator==(other);
 }
 
 
-leaf::iterator leaf::begin(const leaf_node_t *leaf_node) {
+leaf::iterator begin(const leaf_node_t *leaf_node) {
     leaf::iterator ret(leaf_node, -1);
     ret.step();
     return ret;
 }
 
-leaf::iterator leaf::end(const leaf_node_t *leaf_node) {
+leaf::iterator end(const leaf_node_t *leaf_node) {
     return leaf::iterator(leaf_node, leaf_node->num_pairs);
 }
 
-leaf::reverse_iterator leaf::rbegin(const leaf_node_t *leaf_node) {
+leaf::reverse_iterator rbegin(const leaf_node_t *leaf_node) {
     leaf::reverse_iterator ret(leaf_node, leaf_node->num_pairs);
     ret.step();
     return ret;
 }
 
-leaf::reverse_iterator leaf::rend(const leaf_node_t *leaf_node) {
+leaf::reverse_iterator rend(const leaf_node_t *leaf_node) {
     return leaf::reverse_iterator(leaf_node, -1);
 }
 
-leaf::iterator leaf::inclusive_lower_bound(const btree_key_t *key, const leaf_node_t *leaf_node) {
+leaf::iterator inclusive_lower_bound(const btree_key_t *key, const leaf_node_t *leaf_node) {
     int index;
     leaf::find_key(leaf_node, key, &index);
     if (index == leaf_node->num_pairs ||
-        entry_is_live(get_entry(leaf_node, leaf_node->pair_offsets[index]))) {
+        entry_is_live(leaf::get_entry(leaf_node, leaf_node->pair_offsets[index]))) {
         return leaf::iterator(leaf_node, index);
     } else {
         leaf::iterator ret(leaf_node, index);
@@ -1651,12 +1654,12 @@ leaf::iterator leaf::inclusive_lower_bound(const btree_key_t *key, const leaf_no
     }
 }
 
-leaf::reverse_iterator leaf::inclusive_upper_bound(const btree_key_t *key, const leaf_node_t *leaf_node) {
+leaf::reverse_iterator inclusive_upper_bound(const btree_key_t *key, const leaf_node_t *leaf_node) {
     int index;
     leaf::find_key(leaf_node, key, &index);
     if (index < leaf_node->num_pairs) {
-        const entry_t *entry = get_entry(leaf_node, leaf_node->pair_offsets[index]);
-        const btree_key_t *ekey = entry_key(entry);
+        const leaf::entry_t *entry = leaf::get_entry(leaf_node, leaf_node->pair_offsets[index]);
+        const btree_key_t *ekey = leaf::entry_key(entry);
         if (entry_is_live(entry) &&
             sized_strcmp(ekey->contents, ekey->size, key->contents, key->size) == 0) {
             return leaf::reverse_iterator(leaf_node, index);
@@ -1668,4 +1671,4 @@ leaf::reverse_iterator leaf::inclusive_upper_bound(const btree_key_t *key, const
     return ret;
 }
 
-
+}  // namespace leaf
