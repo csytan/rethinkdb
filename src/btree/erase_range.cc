@@ -34,7 +34,9 @@ public:
 
         std::vector<store_key_t> keys_to_delete;
 
-        for (auto it = leaf::begin(node); it != leaf::end(node); it.step()) {
+        for (auto it = leaf<orig_btree_t>::begin(node), e = leaf<orig_btree_t>::end(node);
+             it != e;
+             it.step()) {
             const btree_key_t *k = it.get().first;
             if (!k) {
                 break;
@@ -54,8 +56,8 @@ public:
         int population_change = 0;
 
         for (size_t i = 0; i < keys_to_delete.size(); ++i) {
-            bool found = leaf::lookup(sizer_, node, keys_to_delete[i].btree_key(),
-                                      value.get());
+            bool found = leaf<orig_btree_t>::lookup(sizer_, node, keys_to_delete[i].btree_key(),
+                                                    value.get());
             guarantee(found);
 
             if (on_erase_cb_) {
@@ -63,7 +65,7 @@ public:
             }
 
             deleter_->delete_value(buf_parent_t(leaf_node_buf), value.get());
-            leaf::erase_presence(sizer_, node, keys_to_delete[i].btree_key());
+            leaf<orig_btree_t>::erase_presence(sizer_, node, keys_to_delete[i].btree_key());
             --population_change;
         }
 

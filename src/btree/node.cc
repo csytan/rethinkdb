@@ -19,7 +19,7 @@ namespace node {
 
 bool is_underfull(value_sizer_t *sizer, const node_t *node) {
     if (is_leaf(node)) {
-        return leaf::is_underfull(sizer, reinterpret_cast<const leaf_node_t *>(node));
+        return leaf<orig_btree_t>::is_underfull(sizer, reinterpret_cast<const leaf_node_t *>(node));
     } else {
         rassert(is_internal(node));
         return internal_node::is_underfull(sizer->block_size(), reinterpret_cast<const internal_node_t *>(node));
@@ -28,7 +28,7 @@ bool is_underfull(value_sizer_t *sizer, const node_t *node) {
 
 bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling, const internal_node_t *parent) {
     if (is_leaf(node)) {
-        return leaf::is_mergable(sizer, reinterpret_cast<const leaf_node_t *>(node), reinterpret_cast<const leaf_node_t *>(sibling));
+        return leaf<orig_btree_t>::is_mergable(sizer, reinterpret_cast<const leaf_node_t *>(node), reinterpret_cast<const leaf_node_t *>(sibling));
     } else {
         rassert(is_internal(node));
         return internal_node::is_mergable(sizer->block_size(), reinterpret_cast<const internal_node_t *>(node), reinterpret_cast<const internal_node_t *>(sibling), parent);
@@ -38,8 +38,8 @@ bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling
 
 void split(value_sizer_t *sizer, node_t *node, node_t *rnode, btree_key_t *median) {
     if (is_leaf(node)) {
-        leaf::split(sizer, reinterpret_cast<leaf_node_t *>(node),
-                    reinterpret_cast<leaf_node_t *>(rnode), median);
+        leaf<orig_btree_t>::split(sizer, reinterpret_cast<leaf_node_t *>(node),
+                                  reinterpret_cast<leaf_node_t *>(rnode), median);
     } else {
         internal_node::split(sizer->block_size(), reinterpret_cast<internal_node_t *>(node),
                              reinterpret_cast<internal_node_t *>(rnode), median);
@@ -48,7 +48,7 @@ void split(value_sizer_t *sizer, node_t *node, node_t *rnode, btree_key_t *media
 
 void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_node_t *parent) {
     if (is_leaf(node)) {
-        leaf::merge(sizer, reinterpret_cast<leaf_node_t *>(node), reinterpret_cast<leaf_node_t *>(rnode));
+        leaf<orig_btree_t>::merge(sizer, reinterpret_cast<leaf_node_t *>(node), reinterpret_cast<leaf_node_t *>(rnode));
     } else {
         internal_node::merge(sizer->block_size(), reinterpret_cast<internal_node_t *>(node), reinterpret_cast<internal_node_t *>(rnode), parent);
     }
@@ -57,7 +57,7 @@ void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_nod
 void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const node_t *node) {
 #ifndef NDEBUG
     if (is_leaf(node)) {
-        leaf::validate(sizer, reinterpret_cast<const leaf_node_t *>(node));
+        leaf<orig_btree_t>::validate(sizer, reinterpret_cast<const leaf_node_t *>(node));
     } else if (node->magic == internal_node_t::expected_magic) {
         internal_node::validate(sizer->block_size(), reinterpret_cast<const internal_node_t *>(node));
     } else {

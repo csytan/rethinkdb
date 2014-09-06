@@ -35,6 +35,10 @@ static const int DELETION_RESERVE_FRACTION = 10;
 
 }  // namespace leaf_internal
 
+// RSI: Remove this and have main btree and sindex btree types.
+struct orig_btree_t;
+
+template <class btree_type>
 struct leaf {
     class iterator;
     class reverse_iterator;

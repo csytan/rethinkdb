@@ -696,10 +696,10 @@ void store_t::clear_sindex(
                 if (kv_location.there_originally_was_value) {
                     buf_write_t write(&kv_location.buf);
                     auto leaf_node = static_cast<leaf_node_t *>(write.get_data_write());
-                    leaf::remove(sizer,
-                                 leaf_node,
-                                 keys[i].btree_key(),
-                                 repli_timestamp_t::distant_past);
+                    leaf<orig_btree_t>::remove(sizer,
+                                               leaf_node,
+                                               keys[i].btree_key(),
+                                               repli_timestamp_t::distant_past);
                 }
                 check_and_handle_underfull(sizer, &kv_location.buf,
                         &kv_location.last_buf, kv_location.superblock,

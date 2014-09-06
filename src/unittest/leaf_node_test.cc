@@ -67,7 +67,7 @@ class LeafNodeTracker {
 public:
     LeafNodeTracker() : bs_(max_block_size_t::unsafe_make(4096)), sizer_(bs_), node_(bs_.value()),
                         tstamp_counter_(0) {
-        leaf::init(&sizer_, node_.get());
+        leaf<orig_btree_t>::init(&sizer_, node_.get());
         Print();
     }
 
@@ -76,14 +76,14 @@ public:
     bool Insert(const store_key_t& key, const std::string& value, repli_timestamp_t tstamp) {
         short_value_buffer_t v(value);
 
-        if (leaf::is_full(&sizer_, node(), key.btree_key(), v.data())) {
+        if (leaf<orig_btree_t>::is_full(&sizer_, node(), key.btree_key(), v.data())) {
             Print();
 
             Verify();
             return false;
         }
 
-        leaf::insert(&sizer_, node(), key.btree_key(), v.data(), tstamp);
+        leaf<orig_btree_t>::insert(&sizer_, node(), key.btree_key(), v.data(), tstamp);
 
         kv_[key] = value;
 
@@ -102,7 +102,7 @@ public:
 
         kv_.erase(key);
 
-        leaf::remove(&sizer_, node(), key.btree_key(), tstamp);
+        leaf<orig_btree_t>::remove(&sizer_, node(), key.btree_key(), tstamp);
 
         Verify();
 
@@ -118,7 +118,7 @@ public:
 
         ASSERT_EQ(bs_.ser_value(), lnode->bs_.ser_value());
 
-        leaf::merge(&sizer_, lnode->node(), node());
+        leaf<orig_btree_t>::merge(&sizer_, lnode->node(), node());
 
         int old_kv_size = kv_.size();
         for (std::map<store_key_t, std::string>::iterator p = lnode->kv_.begin(), e = lnode->kv_.end(); p != e; ++p) {
@@ -146,8 +146,8 @@ public:
         ASSERT_EQ(bs_.ser_value(), sibling->bs_.ser_value());
 
         store_key_t replacement;
-        bool can_level = leaf::level(&sizer_, nodecmp_value, node(), sibling->node(),
-                                     replacement.btree_key(), NULL);
+        bool can_level = leaf<orig_btree_t>::level(&sizer_, nodecmp_value, node(), sibling->node(),
+                                                   replacement.btree_key(), NULL);
 
         if (can_level) {
             ASSERT_TRUE(!sibling->kv_.empty());
@@ -190,10 +190,10 @@ public:
     void Split(LeafNodeTracker *right) {
         ASSERT_EQ(bs_.ser_value(), right->bs_.ser_value());
 
-        ASSERT_TRUE(leaf::is_empty(right->node()));
+        ASSERT_TRUE(leaf<orig_btree_t>::is_empty(right->node()));
 
         store_key_t median;
-        leaf::split(&sizer_, node(), right->node(), median.btree_key());
+        leaf<orig_btree_t>::split(&sizer_, node(), right->node(), median.btree_key());
 
         std::map<store_key_t, std::string>::iterator p = kv_.end();
         --p;
@@ -209,7 +209,7 @@ public:
 
     bool IsFull(const store_key_t& key, const std::string& value) {
         short_value_buffer_t value_buf(value);
-        return leaf::is_full(&sizer_, node(), key.btree_key(), value_buf.data());
+        return leaf<orig_btree_t>::is_full(&sizer_, node(), key.btree_key(), value_buf.data());
     }
 
     bool ShouldHave(const store_key_t& key) {
@@ -225,10 +225,10 @@ public:
 
     // This only prints if we enable printing.
     void Print() {
-        // leaf::print(stdout, &sizer_, node());
+        // leaf<orig_btree_t>::print(stdout, &sizer_, node());
     }
 
-    class verify_receptor_t : public leaf::entry_reception_callback_t {
+    class verify_receptor_t : public leaf<orig_btree_t>::entry_reception_callback_t {
     public:
         verify_receptor_t() : got_lost_deletions_(false) { }
 
@@ -272,11 +272,11 @@ public:
 
     void Verify() {
         // Of course, this will fail with rassert, not a gtest assertion.
-        leaf::validate(&sizer_, node());
+        leaf<orig_btree_t>::validate(&sizer_, node());
 
         verify_receptor_t receptor;
         repli_timestamp_t max_possible_tstamp = { tstamp_counter_ };
-        leaf::dump_entries_since_time(&sizer_, node(), repli_timestamp_t::distant_past, max_possible_tstamp, &receptor);
+        leaf<orig_btree_t>::dump_entries_since_time(&sizer_, node(), repli_timestamp_t::distant_past, max_possible_tstamp, &receptor);
 
         if (receptor.map() != kv_) {
             printf("receptor.map(): ");

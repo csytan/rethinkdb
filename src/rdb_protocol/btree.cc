@@ -1544,7 +1544,6 @@ public:
                         const btree_key_t *, const btree_key_t *,
                         signal_t *, int *) THROWS_ONLY(interrupted_exc_t) {
 
-        // KSI: FML
         scoped_ptr_t<txn_t> wtxn;
         store_t::sindex_access_vector_t sindexes;
 
@@ -1556,7 +1555,9 @@ public:
         const int MAX_CHUNK_SIZE = 10;
         int current_chunk_size = 0;
         const rdb_post_construction_deletion_context_t deletion_context;
-        for (auto it = leaf::begin(leaf_node); it != leaf::end(leaf_node); it.step()) {
+        for (auto it = leaf<orig_btree_t>::begin(leaf_node), e = leaf<orig_btree_t>::end(leaf_node);
+             it != e;
+             it.step()) {
             if (current_chunk_size == 0) {
                 // Start a write transaction and acquire the secondary index
                 // at the beginning of each chunk. We reset the transaction

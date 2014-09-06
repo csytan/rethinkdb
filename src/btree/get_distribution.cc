@@ -34,7 +34,9 @@ public:
         const leaf_node_t *node
             = static_cast<const leaf_node_t *>(read.get_data_read());
 
-        for (auto it = leaf::begin(node); it != leaf::end(node); it.step()) {
+        for (auto it = leaf<orig_btree_t>::begin(node), e = leaf<orig_btree_t>::end(node);
+             it != e;
+             it.step()) {
             const btree_key_t *key = it.get().first;
             keys->push_back(store_key_t(key->size, key->contents));
         }

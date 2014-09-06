@@ -403,7 +403,7 @@ buf_lock_t get_root(value_sizer_t *sizer, superblock_t *sb) {
         buf_lock_t lock(sb->expose_buf(), alt_create_t::create);
         {
             buf_write_t write(&lock);
-            leaf::init(sizer, static_cast<leaf_node_t *>(write.get_data_write()));
+            leaf<orig_btree_t>::init(sizer, static_cast<leaf_node_t *>(write.get_data_write()));
         }
         insert_root(lock.block_id(), sb);
         return lock;
@@ -416,9 +416,9 @@ buf_lock_t get_root(value_sizer_t *sizer, superblock_t *sb) {
 void detach_all_children(const node_t *node, buf_parent_t parent,
                          const value_deleter_t *detacher) {
     if (node::is_leaf(node)) {
-        const leaf_node_t *leaf = reinterpret_cast<const leaf_node_t *>(node);
+        const leaf_node_t *leaf_node = reinterpret_cast<const leaf_node_t *>(node);
         // Detach the values that are now in `rbuf` with `buf` as their parent.
-        for (auto it = leaf::begin(leaf); it != leaf::end(leaf); it.step()) {
+        for (auto it = leaf<orig_btree_t>::begin(leaf_node); it != leaf<orig_btree_t>::end(leaf_node); it.step()) {
             detacher->delete_value(parent, it.get().second);
         }
     } else {
@@ -451,8 +451,8 @@ void check_and_handle_split(value_sizer_t *sizer,
         // If the node isn't full, we don't need to split, so we're done.
         if (!node::is_internal(node)) { // This should only be called when update_needed.
             rassert(new_value);
-            if (!leaf::is_full(sizer, reinterpret_cast<const leaf_node_t *>(node),
-                               key, new_value)) {
+            if (!leaf<orig_btree_t>::is_full(sizer, reinterpret_cast<const leaf_node_t *>(node),
+                                             key, new_value)) {
                 return;
             }
         } else {
@@ -702,7 +702,7 @@ void check_and_handle_underfull(value_sizer_t *sizer,
                     }
                 } else {
                     std::vector<const void *> moved_values;
-                    leveled = leaf::level(sizer, nodecmp_node_with_sib,
+                    leveled = leaf<orig_btree_t>::level(sizer, nodecmp_node_with_sib,
                             static_cast<leaf_node_t *>(buf_write.get_data_write()),
                             static_cast<leaf_node_t *>(sib_buf_write.get_data_write()),
                             replacement_key, &moved_values);
@@ -884,7 +884,7 @@ void find_keyvalue_location_for_write(
         // We've gone down the tree and gotten to a leaf. Now look up the key.
         buf_read_t read(&buf);
         auto node = static_cast<const leaf_node_t *>(read.get_data_read());
-        bool key_found = leaf::lookup(sizer, node, key, tmp.get());
+        bool key_found = leaf<orig_btree_t>::lookup(sizer, node, key, tmp.get());
 
         if (key_found) {
             keyvalue_location_out->there_originally_was_value = true;
@@ -962,9 +962,9 @@ void find_keyvalue_location_for_read(
     bool value_found;
     {
         buf_read_t read(&buf);
-        const leaf_node_t *leaf
+        const leaf_node_t *leaf_node
             = static_cast<const leaf_node_t *>(read.get_data_read());
-        value_found = leaf::lookup(sizer, leaf, key, value.get());
+        value_found = leaf<orig_btree_t>::lookup(sizer, leaf_node, key, value.get());
     }
     if (value_found) {
         keyvalue_location_out->buf = std::move(buf);
@@ -997,7 +997,7 @@ void apply_keyvalue_change(
 #ifndef NDEBUG
             buf_read_t read(&kv_loc->buf);
             auto leaf_node = static_cast<const leaf_node_t *>(read.get_data_read());
-            rassert(!leaf::is_full(sizer, leaf_node, key, kv_loc->value.get()));
+            rassert(!leaf<orig_btree_t>::is_full(sizer, leaf_node, key, kv_loc->value.get()));
 #endif
         }
 
@@ -1010,11 +1010,11 @@ void apply_keyvalue_change(
         {
             buf_write_t write(&kv_loc->buf);
             auto leaf_node = static_cast<leaf_node_t *>(write.get_data_write());
-            leaf::insert(sizer,
-                         leaf_node,
-                         key,
-                         kv_loc->value.get(),
-                         tstamp);
+            leaf<orig_btree_t>::insert(sizer,
+                                       leaf_node,
+                                       key,
+                                       kv_loc->value.get(),
+                                       tstamp);
         }
 
         kv_loc->stats->pm_keys_set.record();
@@ -1026,10 +1026,10 @@ void apply_keyvalue_change(
             {
                 buf_write_t write(&kv_loc->buf);
                 auto leaf_node = static_cast<leaf_node_t *>(write.get_data_write());
-                leaf::remove(sizer,
-                             leaf_node,
-                             key,
-                             tstamp);
+                leaf<orig_btree_t>::remove(sizer,
+                                           leaf_node,
+                                           key,
+                                           tstamp);
             }
             population_change = -1;
             kv_loc->stats->pm_keys_set.record();

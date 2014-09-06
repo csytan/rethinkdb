@@ -29,7 +29,7 @@ struct backfill_traversal_helper_t : public btree_traversal_helper_t, public hom
             right_inclusive_or_null ? store_key_t(right_inclusive_or_null) : store_key_t());
         clipped_range = clipped_range.intersection(key_range_);
 
-        struct our_cb_t : public leaf::entry_reception_callback_t {
+        struct our_cb_t : public leaf<orig_btree_t>::entry_reception_callback_t {
             explicit our_cb_t(buf_parent_t _parent) : parent(_parent) { }
             void lost_deletions() {
                 cb->on_delete_range(range, interruptor);
@@ -78,7 +78,7 @@ struct backfill_traversal_helper_t : public btree_traversal_helper_t, public hom
         x.range = clipped_range;
         x.interruptor = interruptor;
 
-        leaf::dump_entries_since_time(sizer_, data, since_when_, leaf_node_buf->get_recency(), &x);
+        leaf<orig_btree_t>::dump_entries_since_time(sizer_, data, since_when_, leaf_node_buf->get_recency(), &x);
     }
 
     void postprocess_internal_node(UNUSED buf_lock_t *internal_node_buf) {

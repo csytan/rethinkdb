@@ -175,8 +175,10 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
         const btree_key_t *key;
 
         if (direction == FORWARD) {
-            for (auto it = leaf::inclusive_lower_bound(range.left.btree_key(), lnode);
-                 it != leaf::end(lnode); it.step()) {
+            for (auto it = leaf<orig_btree_t>::inclusive_lower_bound(range.left.btree_key(), lnode),
+                     e = leaf<orig_btree_t>::end(lnode);
+                 it != e;
+                 it.step()) {
                 key = it.get().first;
                 if (!range.right.unbounded &&
                     btree_key_cmp(key, range.right.key.btree_key()) >= 0) {
@@ -190,13 +192,13 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
                 }
             }
         } else {
-            leaf::reverse_iterator it;
+            leaf<orig_btree_t>::reverse_iterator it;
             if (range.right.unbounded) {
-                it = leaf::rbegin(lnode);
+                it = leaf<orig_btree_t>::rbegin(lnode);
             } else {
-                it = leaf::inclusive_upper_bound(range.right.key.btree_key(), lnode);
+                it = leaf<orig_btree_t>::inclusive_upper_bound(range.right.key.btree_key(), lnode);
             }
-            for (/* assignment above */; it != leaf::rend(lnode); it.step()) {
+            for (/* assignment above */; it != leaf<orig_btree_t>::rend(lnode); it.step()) {
                 key = it.get().first;
 
                 if (btree_key_cmp(key, range.left.btree_key()) <= 0) {
