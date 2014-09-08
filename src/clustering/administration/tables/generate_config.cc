@@ -115,43 +115,65 @@ static double estimate_cost_to_get_up_to_date(
     return sum / count;
 }
 
-/* `pick_best_pairings()` chooses which server will host each shard. It will never pick
-the same server for more than one shard. */
+/* `pick_best_pairings()` chooses which servers in a specific tag will host each shard.
+Its first priority is to minimize how often two shards will be hosted on the same server;
+its second priority is to minimize the "cost" as described in the given map. It uses
+heuristics; there's no guarantee that it will produce the best outcome according to any
+particular metric. */
 static void pick_best_pairings(
-        int num_shards,
+        size_t num_shards,
+        size_t num_replicas,
         /* The map's values are pairs of (shard, server). The keys indicate how expensive
-        it is for that shard to be hosted on that server; lower numbers are better. If a
-        pairing is not present in the map, then it will be impossible.
-        `pick_best_pairings()` will remove pairings from the map as it chooses them. */
-        std::multimap< double, std::pair<int, name_string_t> > *costs,
-        /* This vector will be filled with the chosen server for each shard */
-        std::vector<name_string_t> *picks_out) {
-    std::set<name_string_t> servers_used;
-    std::set<int> shards_satisfied;
+        it is for that shard to be hosted on that server; lower numbers are better. */
+        std::multimap< double, std::pair<int, name_string_t> > &&costs,
+        /* This vector will be filled with the chosen servers for each shard. The first
+        element in each vector will always be the best/lowest-cost option. */
+        std::vector<std::vector<name_string_t> > *picks_out) {
+    std::multiset<name_string_t> servers_used;
+    size_t total_count = 0;
+    picks_out->clear();
     picks_out->resize(num_shards);
-    for (auto it = costs->begin(); it != costs->end();) {
-        if (shards_satisfied.count(it->second.first) == 1 ||
-                servers_used.count(it->second.second) == 1) {
-            ++it;
-            continue;
+
+    /* First, we try to find a solution that involves never putting more than one shard
+    on the same machine. If that doesn't work, we try to never put more than two shards
+    on the same machine, then three shards, and so on. `max_duplication` indicates how
+    many shards we're currently allowing on a single machine. */
+    for (size_t max_duplication = 1;
+            total_count != num_shards * num_replicas;
+            max_duplication += 1) {
+        for (auto it = costs.begin(); it != costs.end();) {
+            /* If we already have enough replicas for this shard, then skip this pairing.
+            We will never use this pairing (we could delete it from the map; it wouldn't
+            make a difference) */
+            if ((*picks_out)[it->second.first].size() == num_replicas) {
+                ++it;
+                continue;
+            }
+            /* The server is already in use. But we might reconsider this pairing in a
+            later pass through the loop, when the value of `max_duplication` is higher.
+            */
+            if (servers_used.count(it->second.second) + 1 > max_duplication) {
+                ++it;
+                continue;
+            }
+            /* TODO: If there are multiple viable options with the same cost, maybe we
+            should pick one randomly instead of always picking the first one. */
+            (*picks_out)[it->second.first].push_back(it->second.second);
+            servers_used.insert(it->second.second);
+            ++total_count;
+            {
+                /* Remove the selected pairing from the map, so that we won't try to put
+                another replica for the same shard on the same server */
+                auto jt = it;
+                ++jt;
+                costs.erase(it);
+                it = jt;
+            }
         }
-        /* TODO: If there are multiple viable options with the same cost, maybe we should
-        pick one randomly instead of always picking the first one. */
-        (*picks_out)[it->second.first] = it->second.second;
-        shards_satisfied.insert(it->second.first);
-        servers_used.insert(it->second.second);
-        {
-            /* Remove the selected pairing from the map, so that we won't try to put
-            another replica for the same shard on the same server */
-            auto jt = it;
-            ++jt;
-            costs->erase(it);
-        }
-        if (shards_satisfied.size() == static_cast<size_t>(num_shards)) {
-            break;
-        }
+        /* If there's a bug in this algorithm such that we can't satisfy the conditions,
+        this will make sure we crash rather than loop forever */
+        guarantee(max_duplication <= static_cast<size_t>(num_shards * num_replicas));
     }
-    guarantee(shards_satisfied.size() == static_cast<size_t>(num_shards));
 }
 
 bool table_generate_config(
@@ -301,24 +323,32 @@ bool table_generate_config(
             }
         }
 
-        for (size_t replica = 0; replica < it->second; ++replica) {
-            std::vector<name_string_t> picks;
-            pick_best_pairings(params.num_shards, &costs, &picks);
-            for (size_t shard = 0; shard < params.num_shards; ++shard) {
-                config_out->shards[shard].replica_names.insert(picks[shard]);
-                if (server_tag == params.director_tag) {
-                    config_out->shards[shard].director_names.push_back(picks[shard]);
+        std::vector<std::vector<name_string_t> > picks;
+        pick_best_pairings(params.num_shards, it->second, std::move(costs), &picks);
+
+        guarantee(picks.size() == params.num_shards);
+        std::set<name_string_t> directors_claimed;
+        for (size_t shard = 0; shard < params.num_shards; ++shard) {
+            guarantee(picks[shard].size() == it->second);
+            for (const name_string_t &name : picks[shard]) {
+                config_out->shards[shard].replica_names.insert(name);
+            }
+            if (server_tag == params.director_tag) {
+                /* Pick a director for each shard. We prefer directors that are closer to
+                the beginning of the list, but we ensure that no two shards have the same
+                director. */
+                size_t i = 0;
+                while (directors_claimed.count(picks[shard][i]) == 1) {
+                    ++i;
+                    guarantee(i < it->second);
                 }
+                name_string_t director = picks[shard][i];
+                config_out->shards[shard].director_names.push_back(director);
+                directors_claimed.insert(director);
             }
         }
     }
 
     return true;
 }
-
-/* TODO: This algorithm currently doesn't update the usage map as it assigns servers,
-which leads to suboptimal behavior in some cases. For example, suppose the user has four
-servers and asks for two shards with two replicas each. The obvious solution is to put
-one replica on each server. But this algorithm will sometimes put a director for one
-shard on the same machine as the non-director replica for the other shard. */
 
