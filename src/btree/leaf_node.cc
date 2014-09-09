@@ -48,6 +48,7 @@ const int SKIP_ENTRY_RESERVED = 251;
 
 
 
+// RSI: Update this and all other comments appropriately.
 
 
 // Entries are contiguously connected to the end of a btree
@@ -82,55 +83,66 @@ const int SKIP_ENTRY_RESERVED = 251;
 struct entry_t;
 struct value_t;
 
-bool entry_is_deletion(const entry_t *p) {
-    uint8_t x = *reinterpret_cast<const uint8_t *>(p);
-    rassert(x != SKIP_ENTRY_RESERVED);
-    return x == DELETE_ENTRY_CODE;
-}
-
-bool entry_is_live(const entry_t *p) {
-    uint8_t x = *reinterpret_cast<const uint8_t *>(p);
-    rassert(x != SKIP_ENTRY_RESERVED);
-    rassert(MAX_KEY_SIZE == 250);
-    return x <= MAX_KEY_SIZE;
-}
-
-bool entry_is_skip(const entry_t *p) {
-    return !entry_is_deletion(p) && !entry_is_live(p);
-}
-
-const btree_key_t *entry_key(const entry_t *p) {
-    if (entry_is_deletion(p)) {
-        return reinterpret_cast<const btree_key_t *>(1 + reinterpret_cast<const char *>(p));
-    } else {
-        return reinterpret_cast<const btree_key_t *>(p);
+struct orig_btree_t {
+    // entry_is_deletion implies that you can call entry_value and get back NULL.
+    static bool entry_is_deletion(const entry_t *p) {
+        uint8_t x = *reinterpret_cast<const uint8_t *>(p);
+        rassert(x != SKIP_ENTRY_RESERVED);
+        return x == DELETE_ENTRY_CODE;
     }
-}
 
-const void *entry_value(const entry_t *p) {
-    if (entry_is_deletion(p)) {
-        return NULL;
-    } else {
-        return reinterpret_cast<const char *>(p) + entry_key(p)->full_size();
+    // entry_is_live implies that you can call entry_value.
+    static bool entry_is_live(const entry_t *p) {
+        uint8_t x = *reinterpret_cast<const uint8_t *>(p);
+        rassert(x != SKIP_ENTRY_RESERVED);
+        rassert(MAX_KEY_SIZE == 250);
+        return x <= MAX_KEY_SIZE;
     }
-}
 
-int entry_size(value_sizer_t *sizer, const entry_t *p) {
-    uint8_t code = *reinterpret_cast<const uint8_t *>(p);
-    switch (code) {
-    case DELETE_ENTRY_CODE:
-        return 1 + entry_key(p)->full_size();
-    case SKIP_ENTRY_CODE_ONE:
-        return 1;
-    case SKIP_ENTRY_CODE_TWO:
-        return 2;
-    case SKIP_ENTRY_CODE_MANY:
-        return 3 + *reinterpret_cast<const uint16_t *>(1 + reinterpret_cast<const char *>(p));
-    default:
-        rassert(code <= MAX_KEY_SIZE);
-        return entry_key(p)->full_size() + sizer->size(entry_value(p));
+    static bool entry_is_skip(const entry_t *p) {
+        return !entry_is_deletion(p) && !entry_is_live(p);
     }
-}
+
+    // You can call this if entry_is_deletion or entry_is_live.
+    static const btree_key_t *entry_key(const entry_t *p) {
+        if (entry_is_deletion(p)) {
+            return reinterpret_cast<const btree_key_t *>(1 + reinterpret_cast<const char *>(p));
+        } else {
+            return reinterpret_cast<const btree_key_t *>(p);
+        }
+    }
+
+    // You can call this if entry_is_deletion or entry_is_live.  You'll get NULL for
+    // deletion entries.
+    static const void *entry_value(const entry_t *p) {
+        if (entry_is_deletion(p)) {
+            return NULL;
+        } else {
+            return reinterpret_cast<const char *>(p) + entry_key(p)->full_size();
+        }
+    }
+
+    // You can call this for any entry.
+    static int entry_size(value_sizer_t *sizer, const entry_t *p) {
+        uint8_t code = *reinterpret_cast<const uint8_t *>(p);
+        switch (code) {
+        case DELETE_ENTRY_CODE:
+            return 1 + entry_key(p)->full_size();
+        case SKIP_ENTRY_CODE_ONE:
+            return 1;
+        case SKIP_ENTRY_CODE_TWO:
+            return 2;
+        case SKIP_ENTRY_CODE_MANY:
+            return 3 + *reinterpret_cast<const uint16_t *>(1 + reinterpret_cast<const char *>(p));
+        default:
+            rassert(code <= MAX_KEY_SIZE);
+            return entry_key(p)->full_size() + sizer->size(entry_value(p));
+        }
+    }
+};
+
+
+
 
 const entry_t *get_entry(const leaf_node_t *node, int offset) {
     return reinterpret_cast<const entry_t *>(reinterpret_cast<const char *>(node) + offset + (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0));
@@ -148,13 +160,16 @@ repli_timestamp_t get_timestamp(const leaf_node_t *node, int offset) {
     return *reinterpret_cast<const repli_timestamp_t *>(reinterpret_cast<const char *>(node) + offset);
 }
 
+template <class btree_type>
 struct entry_iter_t {
     int offset;
 
     void step(value_sizer_t *sizer, const leaf_node_t *node) {
         rassert(!done(sizer));
 
-        offset += entry_size(sizer, get_entry(node, offset)) + (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0);
+        // RSI: This seems like btree-type-specific behavior.
+        offset += btree_type::entry_size(sizer, get_entry(node, offset)) +
+            (offset < node->tstamp_cutpoint ? sizeof(repli_timestamp_t) : 0);
     }
 
     bool done(value_sizer_t *sizer) const {
@@ -170,17 +185,18 @@ struct entry_iter_t {
     }
 };
 
+template <class btree_type>
 void strprint_entry(std::string *out, value_sizer_t *sizer, const entry_t *entry) {
-    if (entry_is_live(entry)) {
-        const btree_key_t *key = entry_key(entry);
+    if (btree_type::entry_is_live(entry)) {
+        const btree_key_t *key = btree_type::entry_key(entry);
         *out += strprintf("%.*s:", static_cast<int>(key->size), key->contents);
-        *out += strprintf("[entry size=%d]", entry_size(sizer, entry));
-        *out += strprintf("[value size=%d]", sizer->size(entry_value(entry)));
-    } else if (entry_is_deletion(entry)) {
-        const btree_key_t *key = entry_key(entry);
+        *out += strprintf("[entry size=%d]", btree_type::entry_size(sizer, entry));
+        *out += strprintf("[value size=%d]", sizer->size(btree_type::entry_value(entry)));
+    } else if (btree_type::entry_is_deletion(entry)) {
+        const btree_key_t *key = btree_type::entry_key(entry);
         *out += strprintf("%.*s:[deletion]", static_cast<int>(key->size), key->contents);
-    } else if (entry_is_skip(entry)) {
-        *out += strprintf("[skip %d]", entry_size(sizer, entry));
+    } else if (btree_type::entry_is_skip(entry)) {
+        *out += strprintf("[skip %d]", btree_type::entry_size(sizer, entry));
     } else {
         *out += strprintf("[code %d]", *reinterpret_cast<const uint8_t *>(entry));
     }
@@ -202,20 +218,20 @@ std::string leaf<btree_type>::strprint_leaf(value_sizer_t *sizer, const leaf_nod
     out += strprintf("  By Key:");
     for (int i = 0; i < node->num_pairs; ++i) {
         out += strprintf(" %d:", node->pair_offsets[i]);
-        strprint_entry(&out, sizer, get_entry(node, node->pair_offsets[i]));
+        strprint_entry<btree_type>(&out, sizer, get_entry(node, node->pair_offsets[i]));
     }
     out += strprintf("\n");
 
     out += strprintf("  By Offset:");
 
-    entry_iter_t iter = entry_iter_t::make(node);
+    entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
     while (out += strprintf(" %d", iter.offset), !iter.done(sizer)) {
         out += strprintf(":");
         if (iter.offset < node->tstamp_cutpoint) {
             repli_timestamp_t tstamp = get_timestamp(node, iter.offset);
             out += strprintf("[t=%" PRIu64 "]", tstamp.longtime);
         }
-        strprint_entry(&out, sizer, get_entry(node, iter.offset));
+        strprint_entry<btree_type>(&out, sizer, get_entry(node, iter.offset));
         iter.step(sizer, node);
     }
     out += strprintf("\n");
@@ -223,18 +239,19 @@ std::string leaf<btree_type>::strprint_leaf(value_sizer_t *sizer, const leaf_nod
     return out;
 }
 
-
+// RSI: This code is redundant with strprint_entry?
+template <class btree_type>
 void print_entry(FILE *fp, value_sizer_t *sizer, const entry_t *entry) {
-    if (entry_is_live(entry)) {
-        const btree_key_t *key = entry_key(entry);
+    if (btree_type::entry_is_live(entry)) {
+        const btree_key_t *key = btree_type::entry_key(entry);
         fprintf(fp, "%.*s:", static_cast<int>(key->size), key->contents);
-        fprintf(fp, "[entry size=%d]", entry_size(sizer, entry));
-        fprintf(fp, "[value size=%d]", sizer->size(entry_value(entry)));
-    } else if (entry_is_deletion(entry)) {
-        const btree_key_t *key = entry_key(entry);
+        fprintf(fp, "[entry size=%d]", btree_type::entry_size(sizer, entry));
+        fprintf(fp, "[value size=%d]", sizer->size(btree_type::entry_value(entry)));
+    } else if (btree_type::entry_is_deletion(entry)) {
+        const btree_key_t *key = btree_type::entry_key(entry);
         fprintf(fp, "%.*s:[deletion]", static_cast<int>(key->size), key->contents);
-    } else if (entry_is_skip(entry)) {
-        fprintf(fp, "[skip %d]", entry_size(sizer, entry));
+    } else if (btree_type::entry_is_skip(entry)) {
+        fprintf(fp, "[skip %d]", btree_type::entry_size(sizer, entry));
     } else {
         fprintf(fp, "[code %d]", *reinterpret_cast<const uint8_t *>(entry));
     }
@@ -257,14 +274,14 @@ void leaf<btree_type>::print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *
     fprintf(fp, "  By Key:");
     for (int i = 0; i < node->num_pairs; ++i) {
         fprintf(fp, " %d:", node->pair_offsets[i]);
-        print_entry(fp, sizer, get_entry(node, node->pair_offsets[i]));
+        print_entry<btree_type>(fp, sizer, get_entry(node, node->pair_offsets[i]));
     }
     fprintf(fp, "\n");
 
     fprintf(fp, "  By Offset:");
     fflush(fp);
 
-    entry_iter_t iter = entry_iter_t::make(node);
+    entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
     while (fprintf(fp, " %d", iter.offset), fflush(fp), !iter.done(sizer)) {
         fprintf(fp, ":");
         fflush(fp);
@@ -273,7 +290,7 @@ void leaf<btree_type>::print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *
             fprintf(fp, "[t=%" PRIu64 "]", tstamp.longtime);
             fflush(fp);
         }
-        print_entry(fp, sizer, get_entry(node, iter.offset));
+        print_entry<btree_type>(fp, sizer, get_entry(node, iter.offset));
         iter.step(sizer, node);
     }
     fprintf(fp, "\n");
@@ -341,7 +358,7 @@ bool leaf<btree_type>::fsck(value_sizer_t *sizer, const btree_key_t *left_exclus
         return false;
     }
 
-    entry_iter_t iter = entry_iter_t::make(node);
+    entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
 
     int observed_live_size = 0;
 
@@ -374,28 +391,33 @@ bool leaf<btree_type>::fsck(value_sizer_t *sizer, const btree_key_t *left_exclus
         }
 
         const entry_t *ent = get_entry(node, offset);
-        if (entry_is_live(ent)) {
-            const void *value = entry_value(ent);
+        if (btree_type::entry_is_live(ent)) {
+            const void *value = btree_type::entry_value(ent);
             int space = sizer->block_size().value() - (reinterpret_cast<const char *>(value) - reinterpret_cast<const char *>(node));
             if (!sizer->fits(value, space)) {
-                *msg_out = strprintf("problem with key %.*s: value does not fit\n", entry_key(ent)->size, entry_key(ent)->contents);
+                *msg_out = strprintf("problem with key %.*s: value does not fit\n",
+                                     btree_type::entry_key(ent)->size,
+                                     btree_type::entry_key(ent)->contents);
                 return false;
             }
 
             std::string fscker_msg;
-            if (!fscker->fsck(sizer, entry_key(ent), value, &fscker_msg)) {
-                *msg_out = strprintf("Problem with key %.*s: %s\n", entry_key(ent)->size, entry_key(ent)->contents, fscker_msg.c_str());
+            if (!fscker->fsck(sizer, btree_type::entry_key(ent), value, &fscker_msg)) {
+                *msg_out = strprintf("Problem with key %.*s: %s\n",
+                                     btree_type::entry_key(ent)->size,
+                                     btree_type::entry_key(ent)->contents,
+                                     fscker_msg.c_str());
                 return false;
             }
 
-            observed_live_size += sizeof(uint16_t) + entry_size(sizer, ent);
+            observed_live_size += sizeof(uint16_t) + btree_type::entry_size(sizer, ent);
             if (failed(i < node->num_pairs, "missing entry offsets")
                 || failed(offset == offs[i], "missing live entries or entry offsets")) {
                 return false;
             }
 
             ++i;
-        } else if (entry_is_deletion(ent)) {
+        } else if (btree_type::entry_is_deletion(ent)) {
             if (failed(!seen_tstamp_cutpoint, "deletion entry after tstamp_cutpoint")
                 || failed(i < node->num_pairs, "missing entry offsets")
                 || failed(offset == offs[i], "missing deletion entries or entry offsets")) {
@@ -418,7 +440,8 @@ bool leaf<btree_type>::fsck(value_sizer_t *sizer, const btree_key_t *left_exclus
 
     const btree_key_t *last = left_exclusive_or_null;
     for (int k = 0; k < node->num_pairs; ++k) {
-        const btree_key_t *key = entry_key(get_entry(node, node->pair_offsets[k]));
+        const btree_key_t *key
+            = btree_type::entry_key(get_entry(node, node->pair_offsets[k]));
         if (failed(last == NULL || sized_strcmp(last->contents, last->size, key->contents, key->size) < 0,
                    "keys out of order")) {
             return false;
@@ -464,6 +487,7 @@ int free_space(value_sizer_t *sizer) {
 // Returns the mandatory storage cost of the node, returning a value
 // in the closed interval [0, free_space(sizer)].  Outputs the offset
 // of the first entry for which storing a timestamp is not mandatory.
+template <class btree_type>
 int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_timestamps, int *tstamp_back_offset_out) {
     int size = node->live_size;
 
@@ -471,22 +495,22 @@ int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_t
     // entries' timestamps, and live entries' timestamps.  We add that
     // to size.
 
-    entry_iter_t iter = entry_iter_t::make(node);
+    entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
     int count = 0;
     int deletions_cost = 0;
     int max_deletions_cost = free_space(sizer) / leaf_impl::DELETION_RESERVE_FRACTION;
     while (!(count == required_timestamps || iter.done(sizer) || iter.offset >= node->tstamp_cutpoint)) {
         const entry_t *ent = get_entry(node, iter.offset);
-        if (entry_is_deletion(ent)) {
+        if (btree_type::entry_is_deletion(ent)) {
             if (deletions_cost >= max_deletions_cost) {
                 break;
             }
 
-            int this_entry_cost = sizeof(uint16_t) + sizeof(repli_timestamp_t) + entry_size(sizer, ent);
+            int this_entry_cost = sizeof(uint16_t) + sizeof(repli_timestamp_t) + btree_type::entry_size(sizer, ent);
             deletions_cost += this_entry_cost;
             size += this_entry_cost;
             ++count;
-        } else if (entry_is_live(ent)) {
+        } else if (btree_type::entry_is_live(ent)) {
             ++count;
             size += sizeof(repli_timestamp_t);
         }
@@ -499,9 +523,10 @@ int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_t
     return size;
 }
 
+template <class btree_type>
 int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_timestamps) {
     int ignored;
-    return mandatory_cost(sizer, node, required_timestamps, &ignored);
+    return mandatory_cost<btree_type>(sizer, node, required_timestamps, &ignored);
 }
 
 int leaf_epsilon(value_sizer_t *sizer) {
@@ -537,7 +562,7 @@ bool leaf<btree_type>::is_full(value_sizer_t *sizer, const leaf_node_t *node, co
     // be garbage collected, which allows us to get into a situation where
     // is_full returns false but when we call prepare_space_for_new_entry we
     // fail with an insertion because it doesn't actually fit.
-    int size = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS);
+    int size = mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS);
 
     // Add the space we'll need for the new key/value pair we would
     // insert.  We conservatively assume the key is not already
@@ -566,7 +591,7 @@ bool leaf<btree_type>::is_underfull(value_sizer_t *sizer, const leaf_node_t *nod
     // free_space / 2 - leaf_epsilon.  We don't want an immediately
     // split node to be underfull, hence the threshold used below.
 
-    return mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
+    return mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
 }
 
 
@@ -594,7 +619,7 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped, 
     std::sort(indices.data(), indices.data() + node->num_pairs, indirect_index_comparator_t(node->pair_offsets));
 
     int mand_offset;
-    UNUSED int cost = mandatory_cost(sizer, node, num_tstamped, &mand_offset);
+    UNUSED int cost = mandatory_cost<btree_type>(sizer, node, num_tstamped, &mand_offset);
 
     int w = sizer->block_size().value();
     int i = node->num_pairs - 1;
@@ -606,8 +631,8 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped, 
         }
 
         entry_t *ent = get_entry(node, offset);
-        if (entry_is_live(ent)) {
-            int sz = entry_size(sizer, ent);
+        if (btree_type::entry_is_live(ent)) {
+            int sz = btree_type::entry_size(sizer, ent);
             w -= sz;
             memmove(get_at_offset(node, w), ent, sz);
             node->pair_offsets[indices[i]] = w;
@@ -624,7 +649,7 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped, 
         int offset = node->pair_offsets[indices[i]];
 
         // Preserve the timestamp.
-        int sz = sizeof(repli_timestamp_t) + entry_size(sizer, get_entry(node, offset));
+        int sz = sizeof(repli_timestamp_t) + btree_type::entry_size(sizer, get_entry(node, offset));
 
         w -= sz;
 
@@ -695,7 +720,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
     rassert(end >= beg);
 
     // This assertion is a bit loose.
-    rassert(fro_copysize + mandatory_cost(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS) <= free_space(sizer));
+    rassert(fro_copysize + mandatory_cost<btree_type>(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS) <= free_space(sizer));
 
     // Make tow have a nice big region we can copy entries to.  Also,
     // this means we have no "skip" entries in tow.
@@ -774,11 +799,11 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
         // Greater timestamps go first.
         if (tow_tstamp < fro_tstamp) {
             entry_t *ent = get_entry(fro, fro_offset);
-            int entsz = entry_size(sizer, ent);
+            int entsz = btree_type::entry_size(sizer, ent);
             int sz = sizeof(repli_timestamp_t) + entsz;
             memmove(get_at_offset(tow, wri_offset), get_at_offset(fro, fro_offset), sz);
 
-            if (entry_is_live(ent)) {
+            if (btree_type::entry_is_live(ent)) {
                 livesize += entsz + sizeof(uint16_t);
                 fro_live_size_adjustment -= entsz + sizeof(uint16_t);
             }
@@ -794,7 +819,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
             fro_index++;
 
         } else {
-            int sz = sizeof(repli_timestamp_t) + entry_size(sizer, get_entry(tow, tow_offset));
+            int sz = sizeof(repli_timestamp_t) + btree_type::entry_size(sizer, get_entry(tow, tow_offset));
             memmove(get_at_offset(tow, wri_offset), get_at_offset(tow, tow_offset), sz);
 
             // Update the pair offset of the entry we've moved.
@@ -821,8 +846,8 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
     for (; fro_index < fro_index_end; ++fro_index) {
         int fro_offset = fro->pair_offsets[beg + tow->pair_offsets[fro_index]];
         entry_t *ent = get_entry(fro, fro_offset);
-        if (entry_is_live(ent)) {
-            int sz = entry_size(sizer, ent);
+        if (btree_type::entry_is_live(ent)) {
+            int sz = btree_type::entry_size(sizer, ent);
             memmove(get_at_offset(tow, wri_offset), ent, sz);
             clean_entry(ent, sz);
             fro_live_size_adjustment -= sz + sizeof(uint16_t);
@@ -832,12 +857,12 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
             wri_offset += sz;
             livesize += sz + sizeof(uint16_t);
         } else {
-            rassert(entry_is_deletion(ent));
+            rassert(btree_type::entry_is_deletion(ent));
 
             // This is a dead entry.  We'll need to squash this dead entry later.
             fro->pair_offsets[beg + tow->pair_offsets[fro_index]] = 0;
 
-            int sz = entry_size(sizer, ent);
+            int sz = btree_type::entry_size(sizer, ent);
             clean_entry(ent, sz);
         }
     }
@@ -850,8 +875,8 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
         rassert(wri_offset <= tow_offset);
 
         entry_t *ent = get_entry(tow, tow_offset);
-        int sz = entry_size(sizer, ent);
-        if (entry_is_live(ent)) {
+        int sz = btree_type::entry_size(sizer, ent);
+        if (btree_type::entry_is_live(ent)) {
             memmove(get_at_offset(tow, wri_offset), ent, sz);
 
             // Update the pair offset of the entry we've moved.
@@ -921,8 +946,8 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
             if (offset != 0) {
                 const entry_t *entry = get_entry(tow, offset);
                 // Skip deletions
-                if (entry_is_live(entry)) {
-                    moved_values_out->push_back(entry_value(entry));
+                if (btree_type::entry_is_live(entry)) {
+                    moved_values_out->push_back(btree_type::entry_value(entry));
                 }
             }
         }
@@ -949,7 +974,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
 template <class btree_type>
 void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, btree_key_t *median_out) {
     int tstamp_back_offset;
-    int mandatory = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
+    int mandatory = mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
     rassert(mandatory >= free_space(sizer) - leaf_epsilon(sizer));
 
@@ -969,17 +994,17 @@ void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_
         // it would be possible to bias one node with a bunch of
         // deletions that makes its mandatory_cost artificially small.
 
-        if (entry_is_live(ent)) {
+        if (btree_type::entry_is_live(ent)) {
             prev_rcost = rcost;
-            rcost += entry_size(sizer, ent) + sizeof(uint16_t) + (offset < tstamp_back_offset ? sizeof(repli_timestamp_t) : 0);
+            rcost += btree_type::entry_size(sizer, ent) + sizeof(uint16_t) + (offset < tstamp_back_offset ? sizeof(repli_timestamp_t) : 0);
 
             ++num_mandatories;
         } else {
-            rassert(entry_is_deletion(ent));
+            rassert(btree_type::entry_is_deletion(ent));
 
             if (offset < tstamp_back_offset) {
                 prev_rcost = rcost;
-                rcost += entry_size(sizer, ent) + sizeof(uint16_t) + sizeof(repli_timestamp_t);
+                rcost += btree_type::entry_size(sizer, ent) + sizeof(uint16_t) + sizeof(repli_timestamp_t);
 
                 ++num_mandatories;
             }
@@ -1020,7 +1045,7 @@ void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_
     move_elements<btree_type>(sizer, node, s, node->num_pairs, 0, rnode, node_copysize,
                               tstamp_back_offset, NULL);
 
-    keycpy(median_out, entry_key(get_entry(node, node->pair_offsets[s - 1])));
+    keycpy(median_out, btree_type::entry_key(get_entry(node, node->pair_offsets[s - 1])));
 }
 
 template <class btree_type>
@@ -1031,12 +1056,12 @@ void leaf<btree_type>::merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_
     rassert(is_underfull(sizer, right));
 
     int tstamp_back_offset;
-    int mandatory = mandatory_cost(sizer, left, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
+    int mandatory = mandatory_cost<btree_type>(sizer, left, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
     int left_copysize = mandatory;
     // Uncount the uint16_t cost of mandatory  entries.  Sigh.
     for (int i = 0; i < left->num_pairs; ++i) {
-        if (left->pair_offsets[i] < tstamp_back_offset || entry_is_deletion(get_entry(left, left->pair_offsets[i]))) {
+        if (left->pair_offsets[i] < tstamp_back_offset || btree_type::entry_is_deletion(get_entry(left, left->pair_offsets[i]))) {
             left_copysize -= sizeof(uint16_t);
         }
     }
@@ -1061,10 +1086,12 @@ bool leaf<btree_type>::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
     // from sibling.
     int beg, end, *w, wstep;
 
-    int node_weight = mandatory_cost(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS);
+    int node_weight = mandatory_cost<btree_type>(sizer, node,
+                                                 leaf_impl::MANDATORY_TIMESTAMPS);
     int tstamp_back_offset;
-    int sibling_weight = mandatory_cost(sizer, sibling, leaf_impl::MANDATORY_TIMESTAMPS,
-                                        &tstamp_back_offset);
+    int sibling_weight = mandatory_cost<btree_type>(sizer, sibling,
+                                                    leaf_impl::MANDATORY_TIMESTAMPS,
+                                                    &tstamp_back_offset);
 
     rassert(node_weight < sibling_weight);
 
@@ -1097,8 +1124,8 @@ bool leaf<btree_type>::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
         entry_t *ent = get_entry(sibling, offset);
 
         // We only take mandatory entries' costs into consideration.
-        if (entry_is_live(ent)) {
-            int sz = entry_size(sizer, ent) + sizeof(uint16_t) + (offset < tstamp_back_offset ? sizeof(repli_timestamp_t) : 0);
+        if (btree_type::entry_is_live(ent)) {
+            int sz = btree_type::entry_size(sizer, ent) + sizeof(uint16_t) + (offset < tstamp_back_offset ? sizeof(repli_timestamp_t) : 0);
             prev_diff = sibling_weight - node_weight;
             prev_weight_movement = weight_movement;
             weight_movement += sz;
@@ -1107,10 +1134,10 @@ bool leaf<btree_type>::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
 
             ++num_mandatories;
         } else {
-            rassert(entry_is_deletion(ent));
+            rassert(btree_type::entry_is_deletion(ent));
 
             if (offset < tstamp_back_offset) {
-                int sz = entry_size(sizer, ent) + sizeof(uint16_t) + sizeof(repli_timestamp_t);
+                int sz = btree_type::entry_size(sizer, ent) + sizeof(uint16_t) + sizeof(repli_timestamp_t);
                 prev_diff = sibling_weight - node_weight;
                 prev_weight_movement = weight_movement;
                 weight_movement += sz;
@@ -1151,9 +1178,9 @@ bool leaf<btree_type>::level(value_sizer_t *sizer, int nodecmp_node_with_sib,
     guarantee(sibling->num_pairs > 0);
 
     if (nodecmp_node_with_sib < 0) {
-        keycpy(replacement_key_out, entry_key(get_entry(node, node->pair_offsets[node->num_pairs - 1])));
+        keycpy(replacement_key_out, btree_type::entry_key(get_entry(node, node->pair_offsets[node->num_pairs - 1])));
     } else {
-        keycpy(replacement_key_out, entry_key(get_entry(sibling, sibling->pair_offsets[sibling->num_pairs - 1])));
+        keycpy(replacement_key_out, btree_type::entry_key(get_entry(sibling, sibling->pair_offsets[sibling->num_pairs - 1])));
     }
 
     return true;
@@ -1179,7 +1206,7 @@ bool leaf<btree_type>::find_key(const leaf_node_t *node, const btree_key_t *key,
         // when (end - beg) > 0, (end - beg) / 2 is always less than (end - beg).  So beg <= test_point < end.
         int test_point = beg + (end - beg) / 2;
 
-        const btree_key_t *ek = entry_key(get_entry(node, node->pair_offsets[test_point]));
+        const btree_key_t *ek = btree_type::entry_key(get_entry(node, node->pair_offsets[test_point]));
 
         int res = sized_strcmp(key->contents, key->size, ek->contents, ek->size);
 
@@ -1208,8 +1235,8 @@ bool leaf<btree_type>::lookup(value_sizer_t *sizer, const leaf_node_t *node, con
     int index;
     if (find_key(node, key, &index)) {
         const entry_t *ent = get_entry(node, node->pair_offsets[index]);
-        if (entry_is_live(ent)) {
-            const void *val = entry_value(ent);
+        if (btree_type::entry_is_live(ent)) {
+            const void *val = btree_type::entry_value(ent);
             memcpy(value_out, val, sizer->size(val));
             return true;
         }
@@ -1257,9 +1284,9 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
         int offset = node->pair_offsets[index];
         entry_t *ent = get_entry(node, offset);
 
-        int sz = entry_size(sizer, ent);
+        int sz = btree_type::entry_size(sizer, ent);
 
-        if (entry_is_live(ent)) {
+        if (btree_type::entry_is_live(ent)) {
             node->live_size -= sizeof(uint16_t) + sz;
         }
 
@@ -1322,7 +1349,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
         new_entry_should_have_timestamp = true;
 
     } else {
-        entry_iter_t iter = entry_iter_t::make(node);
+        entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
         while (!iter.done(sizer) && iter.offset < node->tstamp_cutpoint && get_timestamp(node, iter.offset) > tstamp) {
             iter.step(sizer, node);
         }
@@ -1462,7 +1489,7 @@ void leaf<btree_type>::remove(value_sizer_t *sizer, leaf_node_t *node, const btr
     /* Confirm that the key is already in the node */
     DEBUG_VAR int index;
     rassert(find_key(node, key, &index), "remove() called on key that's not in node");
-    rassert(entry_is_live(get_entry(node, node->pair_offsets[index])), "remove() called on key with dead entry");
+    rassert(btree_type::entry_is_live(get_entry(node, node->pair_offsets[index])), "remove() called on key with dead entry");
 
     /* If the deletion entry would fall after `tstamp_cutpoint`, then it
     shouldn't be written at all. If that's the case, then
@@ -1497,8 +1524,8 @@ void leaf<btree_type>::erase_presence(value_sizer_t *sizer, leaf_node_t *node, c
         int offset = node->pair_offsets[index];
         entry_t *ent = get_entry(node, offset);
 
-        int sz = entry_size(sizer, ent);
-        if (entry_is_live(ent)) {
+        int sz = btree_type::entry_size(sizer, ent);
+        if (btree_type::entry_is_live(ent)) {
             node->live_size -= sizeof(uint16_t) + sz;
         }
 
@@ -1520,7 +1547,7 @@ void leaf<btree_type>::dump_entries_since_time(value_sizer_t *sizer, const leaf_
     {
         repli_timestamp_t earliest_so_far = repli_timestamp_t::invalid;
 
-        entry_iter_t iter = entry_iter_t::make(node);
+        entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
         while (!iter.done(sizer) && iter.offset < node->tstamp_cutpoint) {
             repli_timestamp_t tstamp = get_timestamp(node, iter.offset);
             rassert(earliest_so_far >= tstamp, "asserted earliest_so_far (%" PRIu64 ") >= tstamp (%" PRIu64 ")", earliest_so_far.longtime, tstamp.longtime);
@@ -1547,7 +1574,7 @@ void leaf<btree_type>::dump_entries_since_time(value_sizer_t *sizer, const leaf_
     // Walk through all the entries starting with the the frontmost and finishing right before the one which has tstamp < minimum_tstamp
     // (if it exists). If it doesn't exist, we also walk through the non-timestamped entries.
     {
-        entry_iter_t iter = entry_iter_t::make(node);
+        entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
         repli_timestamp_t last_seen_tstamp = maximum_possible_timestamp;
 
         // Collect key_value pairs so we can send a bunch of them at a time.
@@ -1568,12 +1595,12 @@ void leaf<btree_type>::dump_entries_since_time(value_sizer_t *sizer, const leaf_
 
             const entry_t *ent = get_entry(node, iter.offset);
 
-            if (entry_is_live(ent)) {
-                keys.push_back(entry_key(ent));
-                values.push_back(entry_value(ent));
+            if (btree_type::entry_is_live(ent)) {
+                keys.push_back(btree_type::entry_key(ent));
+                values.push_back(btree_type::entry_value(ent));
                 tstamps.push_back(tstamp);
-            } else if (entry_is_deletion(ent) && include_deletions) {
-                cb->deletion(entry_key(ent), tstamp);
+            } else if (btree_type::entry_is_deletion(ent) && include_deletions) {
+                cb->deletion(btree_type::entry_key(ent), tstamp);
             }
 
             iter.step(sizer, node);
@@ -1597,7 +1624,7 @@ std::pair<const btree_key_t *, const void *> leaf<btree_type>::iterator::get() c
     guarantee(index_ < static_cast<int>(node_->num_pairs));
     guarantee(index_ >= 0);
     const entry_t *entree = get_entry(node_, node_->pair_offsets[index_]);
-    return std::make_pair(entry_key(entree), entry_value(entree));
+    return std::make_pair(btree_type::entry_key(entree), btree_type::entry_value(entree));
 }
 
 template <class btree_type>
@@ -1606,7 +1633,7 @@ void leaf<btree_type>::iterator::step() {
               "Trying to increment past the end of an iterator.");
     do {
         ++index_;
-    } while (index_ < node_->num_pairs && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
+    } while (index_ < node_->num_pairs && !btree_type::entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
 }
 
 template <class btree_type>
@@ -1614,7 +1641,7 @@ void leaf<btree_type>::iterator::step_backwards() {
     guarantee(index_ > -1, "Trying to decrement past the beginning of an iterator.");
     do {
         --index_;
-    } while (index_ >= 0 && !entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
+    } while (index_ >= 0 && !btree_type::entry_is_live(get_entry(node_, node_->pair_offsets[index_])));
 }
 
 template <class btree_type>
@@ -1683,7 +1710,7 @@ typename leaf<btree_type>::iterator leaf<btree_type>::inclusive_lower_bound(cons
     int index;
     leaf<btree_type>::find_key(leaf_node, key, &index);
     if (index == leaf_node->num_pairs ||
-        entry_is_live(get_entry(leaf_node, leaf_node->pair_offsets[index]))) {
+        btree_type::entry_is_live(get_entry(leaf_node, leaf_node->pair_offsets[index]))) {
         return leaf<btree_type>::iterator(leaf_node, index);
     } else {
         leaf<btree_type>::iterator ret(leaf_node, index);
@@ -1698,8 +1725,8 @@ typename leaf<btree_type>::reverse_iterator leaf<btree_type>::inclusive_upper_bo
     leaf<btree_type>::find_key(leaf_node, key, &index);
     if (index < leaf_node->num_pairs) {
         const entry_t *entry = get_entry(leaf_node, leaf_node->pair_offsets[index]);
-        const btree_key_t *ekey = entry_key(entry);
-        if (entry_is_live(entry) &&
+        const btree_key_t *ekey = btree_type::entry_key(entry);
+        if (btree_type::entry_is_live(entry) &&
             sized_strcmp(ekey->contents, ekey->size, key->contents, key->size) == 0) {
             return leaf<btree_type>::reverse_iterator(leaf_node, index);
         }

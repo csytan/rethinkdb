@@ -7,8 +7,22 @@
 #include "arch/io/io_utils.hpp"
 #include "containers/archive/archive.hpp"
 
+// This is a completely worthless type with BLOCKING I/O.  Beware!
+class FILE_write_file_stream_t FINAL : public write_stream_t {
+public:
+    // Doesn't take ownership of the fp.
+    FILE_write_file_stream_t(FILE *fp);
+
+    MUST_USE int64_t write(const void *p, int64_t n) FINAL;
+
+private:
+    FILE *fp_;
+
+    DISABLE_COPYING(FILE_write_file_stream_t);
+};
+
 // This is a completely worthless type with BLOCKING I/O used only in
-// http/file_app, json_import and for seeding randint()
+// http/file_app, json_import and for seeding randint().  Beware!
 class blocking_read_file_stream_t : public read_stream_t {
 public:
     blocking_read_file_stream_t();
