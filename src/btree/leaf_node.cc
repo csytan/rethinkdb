@@ -27,26 +27,6 @@
 // later.
 
 
-// These codes can appear as the first byte of a leaf node entry (see
-// below) (values 250 or smaller are just key sizes for key/value
-// pairs).
-
-// Means we have a deletion entry.
-const int DELETE_ENTRY_CODE = 255;
-
-// Means we have a skipped entry exactly one byte long.
-const int SKIP_ENTRY_CODE_ONE = 254;
-
-// Means we have a skipped entry exactly two bytes long.
-const int SKIP_ENTRY_CODE_TWO = 253;
-
-// Means we have a skipped entry exactly N bytes long, of form { uint8_t 252; uint16_t N; char garbage[]; }
-const int SKIP_ENTRY_CODE_MANY = 252;
-
-// A reserved meaningless value.
-const int SKIP_ENTRY_RESERVED = 251;
-
-
 
 // RSI: Update this and all other comments appropriately.
 
@@ -103,6 +83,38 @@ struct orig_btree_t {
         return !entry_is_deletion(p) && !entry_is_live(p);
     }
 
+    static void clean_entry(void *p, int sz) {
+	rassert(sz > 0);
+
+	uint8_t *q = reinterpret_cast<uint8_t *>(p);
+	if (sz == 1) {
+	    q[0] = SKIP_ENTRY_CODE_ONE;
+	} else if (sz == 2) {
+	    q[0] = SKIP_ENTRY_CODE_TWO;
+	    q[1] = SKIP_ENTRY_RESERVED;
+	} else if (sz > 2) {
+	    q[0] = SKIP_ENTRY_CODE_MANY;
+	    rassert(sz < 65536);
+	    *reinterpret_cast<uint16_t *>(q + 1) = sz - 3;
+
+	    // Some  memset implementations are broken for nonzero values.
+	    for (int i = 3; i < sz; ++i) {
+		q[i] = SKIP_ENTRY_RESERVED;
+	    }
+	}
+    }
+
+    static int delete_entry_size(const btree_key_t *key) {
+	return 1 + key->full_size();
+    }
+
+    static void write_delete_entry(void *buf, const btree_key_t *key) {
+	char *location_to_write_data = static_cast<char *>(buf);
+	*location_to_write_data = static_cast<char>(DELETE_ENTRY_CODE);
+        ++location_to_write_data;
+	memcpy(location_to_write_data, key, key->full_size());
+    }
+
     // You can call this if entry_is_deletion or entry_is_live.
     static const btree_key_t *entry_key(const entry_t *p) {
         if (entry_is_deletion(p)) {
@@ -139,6 +151,27 @@ struct orig_btree_t {
             return entry_key(p)->full_size() + sizer->size(entry_value(p));
         }
     }
+
+private:
+    // These codes can appear as the first byte of a leaf node entry (see
+    // below) (values 250 or smaller are just key sizes for key/value
+    // pairs).
+
+    // Means we have a deletion entry.
+    static const int DELETE_ENTRY_CODE = 255;
+
+    // Means we have a skipped entry exactly one byte long.
+    static const int SKIP_ENTRY_CODE_ONE = 254;
+
+    // Means we have a skipped entry exactly two bytes long.
+    static const int SKIP_ENTRY_CODE_TWO = 253;
+
+    // Means we have a skipped entry exactly N bytes long, of form { uint8_t 252;
+    // uint16_t N; char garbage[]; }
+    static const int SKIP_ENTRY_CODE_MANY = 252;
+
+    // A reserved meaningless value.
+    static const int SKIP_ENTRY_RESERVED = 251;
 };
 
 
@@ -660,27 +693,6 @@ void garbage_collect(value_sizer_t *sizer, leaf_node_t *node, int num_tstamped) 
     rassert(ignore == 0);
 }
 
-void clean_entry(void *p, int sz) {
-    rassert(sz > 0);
-
-    uint8_t *q = reinterpret_cast<uint8_t *>(p);
-    if (sz == 1) {
-        q[0] = SKIP_ENTRY_CODE_ONE;
-    } else if (sz == 2) {
-        q[0] = SKIP_ENTRY_CODE_TWO;
-        q[1] = SKIP_ENTRY_RESERVED;
-    } else if (sz > 2) {
-        q[0] = SKIP_ENTRY_CODE_MANY;
-        rassert(sz < 65536);
-        *reinterpret_cast<uint16_t *>(q + 1) = sz - 3;
-
-        // Some  memset implementations are broken for nonzero values.
-        for (int i = 3; i < sz; ++i) {
-            q[i] = SKIP_ENTRY_RESERVED;
-        }
-    }
-}
-
 // Moves entries with pair_offsets indices in the clopen range [beg,
 // end) from fro to tow.
 template <class btree_type>
@@ -780,7 +792,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
                 fro_live_size_adjustment -= entsz + sizeof(uint16_t);
             }
 
-            clean_entry(ent, entsz);
+	    btree_type::clean_entry(ent, entsz);
 
             // Update the pair offset in fro to be the offset in tow
             // -- we'll never use the old value again and we'll copy
@@ -821,7 +833,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
         if (btree_type::entry_is_live(ent)) {
             int sz = btree_type::entry_size(sizer, ent);
             memmove(get_at_offset(tow, wri_offset), ent, sz);
-            clean_entry(ent, sz);
+            btree_type::clean_entry(ent, sz);
             fro_live_size_adjustment -= sz + sizeof(uint16_t);
 
             fro->pair_offsets[beg + tow->pair_offsets[fro_index]] = wri_offset;
@@ -835,7 +847,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
             fro->pair_offsets[beg + tow->pair_offsets[fro_index]] = 0;
 
             int sz = btree_type::entry_size(sizer, ent);
-            clean_entry(ent, sz);
+            btree_type::clean_entry(ent, sz);
         }
     }
 
@@ -886,7 +898,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
     // entry for the open space.
     if (wri_offset < tow_offset) {
         // printf("wri_offset = %d, tow_offset = %d\n", wri_offset, tow_offset);
-        clean_entry(get_at_offset(tow, wri_offset), tow_offset - wri_offset);
+        btree_type::clean_entry(get_at_offset(tow, wri_offset), tow_offset - wri_offset);
     }
 
     // We don't need to do anything else for tow entries because we
@@ -1262,7 +1274,7 @@ MUST_USE bool prepare_space_for_new_entry(value_sizer_t *sizer, leaf_node_t *nod
             node->live_size -= sizeof(uint16_t) + sz;
         }
 
-        clean_entry(ent, sz);
+        btree_type::clean_entry(ent, sz);
 
         /* We'll re-use the now open slot in `pair_offsets`. If it turns out
         that we aren't actually creating a new entry, like if we're deleting a
@@ -1473,13 +1485,11 @@ void leaf<btree_type>::remove(value_sizer_t *sizer, leaf_node_t *node, const btr
             sizer,
             node,
             key,
-            1 + key->full_size(),   /* 1 for `DELETE_ENTRY_CODE` */
+            btree_type::delete_entry_size(key),   /* 1 for `DELETE_ENTRY_CODE` */
             tstamp,
             false,
             &location_to_write_data)) {
-        *location_to_write_data = static_cast<char>(DELETE_ENTRY_CODE);
-        ++location_to_write_data;
-        memcpy(location_to_write_data, key, key->full_size());
+        btree_type::write_delete_entry(location_to_write_data, key);
     }
 
     validate(sizer, node);
@@ -1501,7 +1511,7 @@ void leaf<btree_type>::erase_presence(value_sizer_t *sizer, leaf_node_t *node, c
             node->live_size -= sizeof(uint16_t) + sz;
         }
 
-        clean_entry(ent, sz);
+        btree_type::clean_entry(ent, sz);
 
         memmove(node->pair_offsets + index, node->pair_offsets + index + 1, (node->num_pairs - (index + 1)) * sizeof(uint16_t));
         node->num_pairs -= 1;
