@@ -8,8 +8,6 @@
 
 #include "btree/leaf_structure.hpp"
 #include "btree/node.hpp"
-#include "containers/archive/file_stream.hpp"
-#include "containers/archive/string_stream.hpp"
 #include "repli_timestamp.hpp"
 #include "utils.hpp"
 
@@ -187,87 +185,88 @@ struct entry_iter_t {
     }
 };
 
-void write_string(write_stream_t *out, const std::string &s) {
-    int64_t res = out->write(s.data(), s.size());
-    guarantee(res != -1);
-}
-
-template <class btree_type>
-void print_entry(write_stream_t *out, value_sizer_t *sizer, const entry_t *entry) {
+template <class btree_type, class writer_t>
+void print_entry(value_sizer_t *sizer, const entry_t *entry, writer_t &&writer) {
     if (btree_type::entry_is_live(entry)) {
         const btree_key_t *key = btree_type::entry_key(entry);
-        write_string(out, strprintf("%.*s:",
-                                    static_cast<int>(key->size), key->contents));
-        write_string(out, strprintf("[entry size=%d]",
-                                    btree_type::entry_size(sizer, entry)));
-        write_string(out, strprintf("[value size=%d]",
-                                    sizer->size(btree_type::entry_value(entry))));
+        writer(strprintf("%.*s:",
+                         static_cast<int>(key->size), key->contents));
+        writer(strprintf("[entry size=%d]",
+                         btree_type::entry_size(sizer, entry)));
+        writer(strprintf("[value size=%d]",
+                         sizer->size(btree_type::entry_value(entry))));
     } else if (btree_type::entry_is_deletion(entry)) {
         const btree_key_t *key = btree_type::entry_key(entry);
-        write_string(out, strprintf("%.*s:[deletion]",
-                                    static_cast<int>(key->size), key->contents));
+        writer(strprintf("%.*s:[deletion]",
+                         static_cast<int>(key->size), key->contents));
     } else if (btree_type::entry_is_skip(entry)) {
-        write_string(out, strprintf("[skip %d]", btree_type::entry_size(sizer, entry)));
+        writer(strprintf("[skip %d]", btree_type::entry_size(sizer, entry)));
     } else {
-        write_string(out, strprintf("[code %d]",
-                                    *reinterpret_cast<const uint8_t *>(entry)));
+        writer(strprintf("[code %d]",
+                         *reinterpret_cast<const uint8_t *>(entry)));
     }
 }
 
 
-template <class btree_type, class flusher>
-void print_leaf(write_stream_t *out, value_sizer_t *sizer, const leaf_node_t *node, flusher &&flush) {
-    write_string(out, strprintf("Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
-                                node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint));
+template <class btree_type, class writer_t, class flusher_t>
+void print_leaf(value_sizer_t *sizer, const leaf_node_t *node,
+                writer_t &&writer, flusher_t &&flush) {
+    writer(strprintf("Leaf(magic='%4.4s', num_pairs=%u, live_size=%u, frontmost=%u, tstamp_cutpoint=%u)\n",
+                     node->magic.bytes, node->num_pairs, node->live_size, node->frontmost, node->tstamp_cutpoint));
 
-    write_string(out, "  Offsets:");
+    writer("  Offsets:");
     for (int i = 0; i < node->num_pairs; ++i) {
-        write_string(out, strprintf(" %d", node->pair_offsets[i]));
+        writer(strprintf(" %d", node->pair_offsets[i]));
     }
-    write_string(out, "\n");
+    writer("\n");
     flush();
 
-    write_string(out, "  By Key:");
+    writer("  By Key:");
     for (int i = 0; i < node->num_pairs; ++i) {
-        write_string(out, strprintf(" %d:", node->pair_offsets[i]));
-        print_entry<btree_type>(out, sizer, get_entry(node, node->pair_offsets[i]));
+        writer(strprintf(" %d:", node->pair_offsets[i]));
+        print_entry<btree_type>(sizer, get_entry(node, node->pair_offsets[i]), writer);
         flush();
     }
-    write_string(out, "\n");
+    writer("\n");
 
-    write_string(out, "  By Offset:");
+    writer("  By Offset:");
     flush();
 
     entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
-    while ((write_string(out, strprintf(" %d", iter.offset)),
+    while ((writer(strprintf(" %d", iter.offset)),
             flush(),
             !iter.done(sizer))) {
-        write_string(out, strprintf(":"));
+        writer(strprintf(":"));
         flush();
         if (iter.offset < node->tstamp_cutpoint) {
             repli_timestamp_t tstamp = get_timestamp(node, iter.offset);
-            write_string(out, strprintf("[t=%" PRIu64 "]", tstamp.longtime));
+            writer(strprintf("[t=%" PRIu64 "]", tstamp.longtime));
             flush();
         }
-        print_entry<btree_type>(out, sizer, get_entry(node, iter.offset));
+        print_entry<btree_type>(sizer, get_entry(node, iter.offset), writer);
         flush();
         iter.step(sizer, node);
     }
-    write_string(out, "\n");
+    writer("\n");
     flush();
 }
 
 template <class btree_type>
 std::string leaf<btree_type>::strprint_leaf(value_sizer_t *sizer, const leaf_node_t *node) {
-    string_stream_t stream;
-    print_leaf<btree_type>(&stream, sizer, node, []() { });
-    return stream.str();
+    std::string str;
+    print_leaf<btree_type>(sizer, node,
+                           [&str](std::string s) { str += std::move(s); },
+                           []() { });
+    return str;
 }
 
 template <class btree_type>
 void leaf<btree_type>::print(FILE *fp, value_sizer_t *sizer, const leaf_node_t *node) {
-    FILE_write_file_stream_t stream(fp);
-    print_leaf<btree_type>(&stream, sizer, node, [fp]() { fflush(fp); });
+     print_leaf<btree_type>(sizer, node,
+                            [fp](const std::string &s) {
+                                fwrite(s.data(), 1, s.size(), fp);
+                            },
+                            [fp]() { fflush(fp); });
 }
 
 

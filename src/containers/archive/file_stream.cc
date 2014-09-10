@@ -6,15 +6,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-FILE_write_file_stream_t::FILE_write_file_stream_t(FILE *fp)
-    : fp_(fp) { }
-
-int64_t FILE_write_file_stream_t::write(const void *p, int64_t n) {
-    size_t res = fwrite(p, 1, n, fp_);
-    // A short count with fwrite means an error happen.
-    return static_cast<int64_t>(res) < n ? -1 : n;
-}
-
 
 blocking_read_file_stream_t::blocking_read_file_stream_t() { }
 
