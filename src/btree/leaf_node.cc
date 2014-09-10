@@ -152,6 +152,11 @@ struct orig_btree_t {
         }
     }
 
+    static int free_space(value_sizer_t *sizer) {
+        // RSI: This will need to change.
+        return sizer->block_size().value() - offsetof(leaf_node_t, pair_offsets);
+    }
+
 private:
     // These codes can appear as the first byte of a leaf node entry (see
     // below) (values 250 or smaller are just key sizes for key/value
@@ -485,10 +490,6 @@ void leaf<btree_type>::init(value_sizer_t *sizer, leaf_node_t *node) {
     node->tstamp_cutpoint = node->frontmost;
 }
 
-int free_space(value_sizer_t *sizer) {
-    return sizer->block_size().value() - offsetof(leaf_node_t, pair_offsets);
-}
-
 // Returns the mandatory storage cost of the node, returning a value
 // in the closed interval [0, free_space(sizer)].  Outputs the offset
 // of the first entry for which storing a timestamp is not mandatory.
@@ -503,7 +504,7 @@ int mandatory_cost(value_sizer_t *sizer, const leaf_node_t *node, int required_t
     entry_iter_t<btree_type> iter = entry_iter_t<btree_type>::make(node);
     int count = 0;
     int deletions_cost = 0;
-    int max_deletions_cost = free_space(sizer) / leaf_impl::DELETION_RESERVE_FRACTION;
+    int max_deletions_cost = btree_type::free_space(sizer) / leaf_impl::DELETION_RESERVE_FRACTION;
     while (!(count == required_timestamps || iter.done(sizer) || iter.offset >= node->tstamp_cutpoint)) {
         const entry_t *ent = get_entry(node, iter.offset);
         if (btree_type::entry_is_deletion(ent)) {
@@ -576,7 +577,7 @@ bool leaf<btree_type>::is_full(value_sizer_t *sizer, const leaf_node_t *node, co
     size += sizeof(uint16_t) + sizeof(repli_timestamp_t) + key->full_size() + sizer->size(value);
 
     // The node is full if we can't fit all that data within the free space.
-    return size > free_space(sizer);
+    return size > btree_type::free_space(sizer);
 }
 
 template <class btree_type>
@@ -596,7 +597,7 @@ bool leaf<btree_type>::is_underfull(value_sizer_t *sizer, const leaf_node_t *nod
     // free_space / 2 - leaf_epsilon.  We don't want an immediately
     // split node to be underfull, hence the threshold used below.
 
-    return mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS) < free_space(sizer) / 2 - leaf_epsilon(sizer);
+    return mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS) < btree_type::free_space(sizer) / 2 - leaf_epsilon(sizer);
 }
 
 
@@ -704,7 +705,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
     rassert(end >= beg);
 
     // This assertion is a bit loose.
-    rassert(fro_copysize + mandatory_cost<btree_type>(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS) <= free_space(sizer));
+    rassert(fro_copysize + mandatory_cost<btree_type>(sizer, tow, leaf_impl::MANDATORY_TIMESTAMPS) <= btree_type::free_space(sizer));
 
     // Make tow have a nice big region we can copy entries to.  Also,
     // this means we have no "skip" entries in tow.
@@ -960,7 +961,7 @@ void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_
     int tstamp_back_offset;
     int mandatory = mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
-    rassert(mandatory >= free_space(sizer) - leaf_epsilon(sizer));
+    rassert(mandatory >= btree_type::free_space(sizer) - leaf_epsilon(sizer));
 
     // We shall split the mandatory cost of this node as evenly as possible.
 
@@ -1018,8 +1019,8 @@ void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_
 
     // If our math was right, neither node can be underfull just
     // considering the split of the mandatory costs.
-    rassert(end_rcost >= free_space(sizer) / 2 - leaf_epsilon(sizer));
-    rassert(mandatory - end_rcost >= free_space(sizer) / 2 - leaf_epsilon(sizer));
+    rassert(end_rcost >= btree_type::free_space(sizer) / 2 - leaf_epsilon(sizer));
+    rassert(mandatory - end_rcost >= btree_type::free_space(sizer) / 2 - leaf_epsilon(sizer));
 
     // Now we wish to move the elements at indices [s, num_pairs) to rnode.
 
