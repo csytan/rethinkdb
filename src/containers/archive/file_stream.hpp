@@ -11,7 +11,7 @@
 class FILE_write_file_stream_t FINAL : public write_stream_t {
 public:
     // Doesn't take ownership of the fp.
-    FILE_write_file_stream_t(FILE *fp);
+    explicit FILE_write_file_stream_t(FILE *fp);
 
     MUST_USE int64_t write(const void *p, int64_t n) FINAL;
 

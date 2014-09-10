@@ -85,6 +85,7 @@ public:
     write_stream_t() { }
     // Returns n, or -1 upon error. Blocks until all bytes are written.
     virtual MUST_USE int64_t write(const void *p, int64_t n) = 0;
+
 protected:
     virtual ~write_stream_t() { }
 private:
