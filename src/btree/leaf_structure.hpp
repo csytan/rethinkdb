@@ -6,9 +6,6 @@
 
 #include "buffer_cache/types.hpp"
 
-// RSI: Drop all use and reference to this flag.
-#define NEW_LEAF_LOGIC 1
-
 // RSI: Rename leaf_node_t to old_leaf_node_t and make leaf_node_t just have magic.
 
 // The original leaf node layout, that old leaf nodes have.  Not all live entries
@@ -36,7 +33,6 @@ struct leaf_node_t {
 
 } __attribute__ ((__packed__));
 
-#if NEW_LEAF_LOGIC
 // The modern secondary index leaf node.  We don't have tstamp_cutpoint or
 // live_tstamp_cutpoint, because there are no timestamps.  We can migrate directly
 // from the old format to this one, because there's no way that migration could cause
@@ -92,7 +88,6 @@ struct main_leaf_node_t {
     uint16_t pair_offsets[];
 
 } __attribute__ ((__packed__));
-#endif  // NEW_LEAF_LOGIC
 
 
 
