@@ -36,13 +36,13 @@ bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling
 }
 
 
-void split(value_sizer_t *sizer, node_t *node, node_t *rnode, btree_key_t *median) {
+void split(value_sizer_t *sizer, node_t *node, node_t *rnode, store_key_t *median_out) {
     if (is_leaf(node)) {
         leaf<orig_btree_t>::split(sizer, reinterpret_cast<leaf_node_t *>(node),
-                                  reinterpret_cast<leaf_node_t *>(rnode), median);
+                                  reinterpret_cast<leaf_node_t *>(rnode), median_out);
     } else {
         internal_node::split(sizer->block_size(), reinterpret_cast<internal_node_t *>(node),
-                             reinterpret_cast<internal_node_t *>(rnode), median);
+                             reinterpret_cast<internal_node_t *>(rnode), median_out);
     }
 }
 

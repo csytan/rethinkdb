@@ -83,7 +83,7 @@ bool remove(block_size_t block_size, internal_node_t *node, const btree_key_t *k
     return true;
 }
 
-void split(block_size_t block_size, internal_node_t *node, internal_node_t *rnode, btree_key_t *median) {
+void split(block_size_t block_size, internal_node_t *node, internal_node_t *rnode, store_key_t *median_out) {
     uint16_t total_pairs = block_size.value() - node->frontmost_offset;
     uint16_t first_pairs = 0;
     int index = 0;
@@ -95,7 +95,7 @@ void split(block_size_t block_size, internal_node_t *node, internal_node_t *rnod
 
     // Equality takes the left branch, so the median should be from this node.
     const btree_key_t *median_key = &get_pair_by_index(node, median_index-1)->key;
-    keycpy(median, median_key);
+    keycpy(median_out->btree_key(), median_key);
 
     init(block_size, rnode, node, node->pair_offsets + median_index, node->npairs - median_index);
 

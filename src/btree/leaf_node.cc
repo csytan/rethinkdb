@@ -963,7 +963,7 @@ void move_elements(value_sizer_t *sizer, leaf_node_t *fro, int beg, int end,
 }
 
 template <class btree_type>
-void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, btree_key_t *median_out) {
+void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *rnode, store_key_t *median_out) {
     int tstamp_back_offset;
     const int mandatory = mandatory_cost<btree_type>(sizer, node, leaf_impl::MANDATORY_TIMESTAMPS, &tstamp_back_offset);
 
@@ -1036,7 +1036,8 @@ void leaf<btree_type>::split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_
     move_elements<btree_type>(sizer, node, s, node->num_pairs, 0, rnode, node_copysize,
                               tstamp_back_offset, NULL);
 
-    keycpy(median_out, btree_type::entry_key(get_entry(node, node->pair_offsets[s - 1])));
+    keycpy(median_out->btree_key(),
+           btree_type::entry_key(get_entry(node, node->pair_offsets[s - 1])));
 }
 
 template <class btree_type>

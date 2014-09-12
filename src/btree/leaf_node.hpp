@@ -12,6 +12,7 @@
 class value_sizer_t;
 struct btree_key_t;
 class repli_timestamp_t;
+struct store_key_t;
 
 
 struct leaf_node_t;
@@ -88,7 +89,7 @@ struct leaf {
     static bool is_underfull(value_sizer_t *sizer, const leaf_node_t *node);
 
     static void split(value_sizer_t *sizer, leaf_node_t *node, leaf_node_t *sibling,
-                      btree_key_t *median_out);
+                      store_key_t *median_out);
 
     static void merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right);
 

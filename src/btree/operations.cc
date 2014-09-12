@@ -474,8 +474,7 @@ void check_and_handle_split(value_sizer_t *sizer,
     // track of the median key in the split; then actually split.
     buf_lock_t rbuf(last_buf->empty() ? sb->expose_buf() : buf_parent_t(last_buf),
                     alt_create_t::create);
-    store_key_t median_buffer;
-    btree_key_t *median = median_buffer.btree_key();
+    store_key_t median;
 
     {
         buf_write_t buf_write(buf);
@@ -483,7 +482,7 @@ void check_and_handle_split(value_sizer_t *sizer,
         node::split(sizer,
                     static_cast<node_t *>(buf_write.get_data_write()),
                     static_cast<node_t *>(rbuf_write.get_data_write()),
-                    median);
+                    &median);
 
         // We must detach all entries that we have removed from `buf`.
         buf_read_t rbuf_read(&rbuf);
@@ -520,13 +519,13 @@ void check_and_handle_split(value_sizer_t *sizer,
         DEBUG_VAR bool success
             = internal_node::insert(sizer->block_size(),
                                     static_cast<internal_node_t *>(last_write.get_data_write()),
-                                    median,
+                                    median.btree_key(),
                                     buf->block_id(), rbuf.block_id());
         rassert(success, "could not insert internal btree node");
     }
 
     // We've split the node; now figure out where the key goes and release the other buf (since we're done with it).
-    if (0 >= sized_strcmp(key->contents, key->size, median->contents, median->size)) {
+    if (0 >= sized_strcmp(key->contents, key->size, median.contents(), median.size())) {
         // The key goes in the old buf (the left one).
 
         // Do nothing.

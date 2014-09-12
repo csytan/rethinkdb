@@ -96,7 +96,7 @@ bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling
 
 bool is_underfull(value_sizer_t *sizer, const node_t *node);
 
-void split(value_sizer_t *sizer, node_t *node, node_t *rnode, btree_key_t *median);
+void split(value_sizer_t *sizer, node_t *node, node_t *rnode, store_key_t *median_out);
 
 void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_node_t *parent);
 

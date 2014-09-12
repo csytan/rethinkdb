@@ -193,7 +193,7 @@ public:
         ASSERT_TRUE(leaf<orig_btree_t>::is_empty(right->node()));
 
         store_key_t median;
-        leaf<orig_btree_t>::split(&sizer_, node(), right->node(), median.btree_key());
+        leaf<orig_btree_t>::split(&sizer_, node(), right->node(), &median);
 
         std::map<store_key_t, std::string>::iterator p = kv_.end();
         --p;

@@ -33,7 +33,8 @@ void init(block_size_t block_size, internal_node_t *node, const internal_node_t 
 block_id_t lookup(const internal_node_t *node, const btree_key_t *key);
 bool insert(block_size_t block_size, internal_node_t *node, const btree_key_t *key, block_id_t lnode, block_id_t rnode);
 bool remove(block_size_t block_size, internal_node_t *node, const btree_key_t *key);
-void split(block_size_t block_size, internal_node_t *node, internal_node_t *rnode, btree_key_t *median);
+void split(block_size_t block_size, internal_node_t *node, internal_node_t *rnode,
+           store_key_t *median_out);
 void merge(block_size_t block_size, const internal_node_t *node, internal_node_t *rnode, const internal_node_t *parent);
 bool level(block_size_t block_size, internal_node_t *node, internal_node_t *sibling,
            btree_key_t *replacement_key, const internal_node_t *parent,
