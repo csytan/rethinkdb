@@ -2,6 +2,7 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "buffer_cache/alt/page_cache.hpp"
+#include "containers/sized_ptr.hpp"
 #include "serializer/serializer.hpp"
 
 namespace alt {
@@ -474,6 +475,12 @@ block_size_t page_t::get_page_buf_size() {
     return buf_.block_size();
 }
 
+void page_t::set_page_buf(buf_ptr_t buf_ptr) {
+    // RSI: Kind of sad that this involves double-allocating the buffer.
+    rassert(buf_.has());
+    buf_ = std::move(buf_ptr);
+}
+
 uint32_t page_t::hypothetical_memory_usage(page_cache_t *page_cache) const {
     if (buf_.has()) {
         return buf_.aligned_block_size();
@@ -601,6 +608,19 @@ void *page_acq_t::get_buf_write(block_size_t block_size) {
     page_->reset_block_token(page_cache_);
     page_->set_page_buf_size(block_size, page_cache_);
     return page_->get_page_buf(page_cache_);
+}
+
+sized_ptr_t<void> page_acq_t::get_sized_buf_write() {
+    buf_ready_signal_.wait();
+    page_->reset_block_token(page_cache_);
+    return sized_ptr_t<void>(page_->get_page_buf(page_cache_),
+                             page_->get_page_buf_size().value());
+}
+
+void page_acq_t::set_buf_write(buf_ptr_t new_buf) {
+    buf_ready_signal_.wait();
+    page_->reset_block_token(page_cache_);
+    page_->set_page_buf(std::move(new_buf));
 }
 
 const void *page_acq_t::get_buf_read() {

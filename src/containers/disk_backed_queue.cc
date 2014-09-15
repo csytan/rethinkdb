@@ -120,7 +120,7 @@ void internal_disk_backed_queue_t::pop(buffer_group_viewer_t *viewer) {
     {
         buf_read_t read(&_tail);
         const queue_block_t *tail
-            = static_cast<const queue_block_t *>(read.get_data_read());
+            = static_cast<const queue_block_t *>(read.get_data_read_default());
         rassert(tail->data_size != tail->live_data_offset);
         memcpy(buffer, tail->data + tail->live_data_offset,
                blob::ref_size(cache->default_block_size(),

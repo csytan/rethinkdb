@@ -1548,8 +1548,7 @@ public:
         store_t::sindex_access_vector_t sindexes;
 
         buf_read_t leaf_read(leaf_node_buf);
-        const leaf_node_t *leaf_node
-            = static_cast<const leaf_node_t *>(leaf_read.get_data_read());
+        sized_ptr_t<const leaf_node_t> leaf_node = leaf_read.get_data_read<leaf_node_t>();
 
         // Number of key/value pairs we process before yielding
         const int MAX_CHUNK_SIZE = 10;

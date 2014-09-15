@@ -20,7 +20,7 @@ struct backfill_traversal_helper_t : public btree_traversal_helper_t, public hom
         THROWS_ONLY(interrupted_exc_t) {
         assert_thread();
         buf_read_t read(leaf_node_buf);
-        const leaf_node_t *data = static_cast<const leaf_node_t *>(read.get_data_read());
+        sized_ptr_t<const leaf_node_t> data = read.get_data_read<leaf_node_t>();
 
         key_range_t clipped_range(
             left_exclusive_or_null ? key_range_t::open : key_range_t::none,

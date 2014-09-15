@@ -60,7 +60,7 @@ void get_secondary_indexes_internal(
         std::map<sindex_name_t, secondary_index_t> *sindexes_out) {
     buf_read_t read(sindex_block);
     const btree_sindex_block_t *data
-        = static_cast<const btree_sindex_block_t *>(read.get_data_read());
+        = static_cast<const btree_sindex_block_t *>(read.get_data_read_default());
 
     blob_t sindex_blob(sindex_block->cache()->default_block_size(),
                        const_cast<char *>(data->sindex_blob),

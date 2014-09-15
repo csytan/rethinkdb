@@ -131,9 +131,10 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
                                  const btree_key_t *left_excl_or_null,
                                  const btree_key_t *right_incl_or_null) {
     auto read = make_counted<counted_buf_read_t>(block.get());
-    const node_t *node = static_cast<const node_t *>(read->get_data_read());
-    if (node::is_internal(node)) {
-        const internal_node_t *inode = reinterpret_cast<const internal_node_t *>(node);
+    sized_ptr_t<const node_t> node = read->get_data_read<node_t>();
+    if (node::is_internal(node.buf)) {
+        // RSI: It would be nice to assert that node.block_size had the right value here.
+        const internal_node_t *inode = reinterpret_cast<const internal_node_t *>(node.buf);
         int start_index = internal_node::get_offset_index(inode, range.left.btree_key());
         int end_index;
         if (range.right.unbounded) {
@@ -171,7 +172,8 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
         }
         return true;
     } else {
-        const leaf_node_t *lnode = reinterpret_cast<const leaf_node_t *>(node);
+        sized_ptr_t<const leaf_node_t> lnode
+            = sized_ptr_reinterpret_cast<const leaf_node_t>(node);
         const btree_key_t *key;
 
         if (direction == FORWARD) {

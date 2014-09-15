@@ -429,8 +429,8 @@ struct do_a_subtree_traversal_fsm_t : public node_ready_callback_t {
         bool is_leaf;
         {
             buf_read_t read(&buf);
-            const node_t *node = static_cast<const node_t *>(read.get_data_read());
-            is_leaf = node::is_leaf(node);
+            sized_ptr_t<const node_t> node = read.get_data_read<node_t>();
+            is_leaf = node::is_leaf(node.buf);
         }
 
         const btree_key_t *left_exclusive_or_null = left_unbounded ? NULL : left_exclusive.btree_key();
@@ -494,7 +494,7 @@ void process_a_internal_node(traversal_state_t *state,
     {
         buf_read_t read(&buf);
         const internal_node_t *node
-            = static_cast<const internal_node_t *>(read.get_data_read());
+            = static_cast<const internal_node_t *>(read.get_data_read_default());
 
         ids_source = make_counted<ranged_block_ids_t>(
                     state->default_block_size, node,

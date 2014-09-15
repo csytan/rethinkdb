@@ -9,6 +9,7 @@
 #include "buffer_cache/alt/page_cache.hpp"
 #include "buffer_cache/types.hpp"
 #include "containers/two_level_array.hpp"
+#include "containers/sized_ptr.hpp"
 #include "repli_timestamp.hpp"
 
 class serializer_t;
@@ -314,8 +315,17 @@ public:
     explicit buf_read_t(buf_lock_t *lock);
     ~buf_read_t();
 
+    // RSI: Remove this get_data_read function.
     const void *get_data_read(uint32_t *block_size_out);
-    const void *get_data_read() {
+
+    template <class T>
+    sized_ptr_t<const T> get_data_read() {
+        uint32_t block_size;
+        const void *data = get_data_read(&block_size);
+        return sized_ptr_t<const T>(static_cast<const T *>(data), block_size);
+    }
+
+    const void *get_data_read_default() {
         uint32_t block_size;
         const void *data = get_data_read(&block_size);
         guarantee(block_size == lock_->cache()->default_block_size().value());
@@ -336,9 +346,22 @@ public:
 
     void *get_data_write(uint32_t block_size);
     // Equivalent to passing the default_block_size.
+    // RSI: Change this.  Change how you write in general?  Somewhat...
     void *get_data_write();
 
+    void set_data_write(buf_ptr_t new_buf);
+
+    // RSI: Rename to get_data_write.
+    template <class T>
+    sized_ptr_t<T> get_sized_data_write() {
+        sized_ptr_t<void> x = help_get_sized_data_write();
+        return sized_ptr_t<T>(static_cast<T *>(x.buf), x.block_size);
+    }
+
 private:
+    // Get the buffer... with existing size info, instead of providing your own.
+    sized_ptr_t<void> help_get_sized_data_write();
+
     buf_lock_t *lock_;
     alt::page_acq_t page_acq_;
 

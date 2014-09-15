@@ -31,8 +31,7 @@ public:
                         signal_t * /*interruptor*/,
                         int * /*population_change_out*/) THROWS_ONLY(interrupted_exc_t) {
         buf_read_t read(leaf_node_buf);
-        const leaf_node_t *node
-            = static_cast<const leaf_node_t *>(read.get_data_read());
+        sized_ptr_t<const leaf_node_t> node = read.get_data_read<leaf_node_t>();
 
         for (auto it = leaf::begin(node); it != leaf::end(node); it.step()) {
             const btree_key_t *key = (*it).first;
@@ -43,7 +42,7 @@ public:
     void postprocess_internal_node(buf_lock_t *internal_node_buf) {
         buf_read_t read(internal_node_buf);
         const internal_node_t *node
-            = static_cast<const internal_node_t *>(read.get_data_read());
+            = static_cast<const internal_node_t *>(read.get_data_read_default());
 
         /* Notice, we iterate all but the last pair because the last pair
          * doesn't actually have a key and we're looking for the split points.

@@ -15,6 +15,8 @@
 #include "serializer/types.hpp"
 #include "version.hpp"
 
+template <class> class sized_ptr_t;
+
 class value_sizer_t {
 public:
     value_sizer_t() { }
@@ -90,7 +92,8 @@ inline bool is_leaf(const node_t *node) {
     return !is_internal(node);
 }
 
-bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling, const internal_node_t *parent);
+bool is_mergable(value_sizer_t *sizer, sized_ptr_t<const node_t> node,
+                 sized_ptr_t<const node_t> sibling, const internal_node_t *parent);
 
 bool is_underfull(value_sizer_t *sizer, const node_t *node);
 
@@ -98,7 +101,7 @@ void split(value_sizer_t *sizer, node_t *node, node_t *rnode, store_key_t *media
 
 void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_node_t *parent);
 
-void validate(value_sizer_t *sizer, const node_t *node);
+void validate(value_sizer_t *sizer, sized_ptr_t<const node_t> node);
 
 }  // namespace node
 

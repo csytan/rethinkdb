@@ -16,13 +16,14 @@ void btree_superblock_ct_asserts() {
 
 namespace node {
 
-bool is_underfull(value_sizer_t *sizer, const node_t *node) {
-    if (is_leaf(node)) {
-        return leaf::is_underfull(sizer, reinterpret_cast<const leaf_node_t *>(node));
+bool is_underfull(value_sizer_t *sizer, sized_ptr_t<const node_t> node) {
+    if (is_leaf(node.buf)) {
+        return leaf::is_underfull(sizer,
+                                  sized_ptr_reinterpret_cast<const leaf_node_t>(node));
     } else {
-        rassert(is_internal(node));
+        rassert(is_internal(node.buf));
         return internal_node::is_underfull(sizer->default_block_size(),
-                                           reinterpret_cast<const internal_node_t *>(node));
+                                           reinterpret_cast<const internal_node_t *>(node.buf));
     }
 }
 
@@ -60,13 +61,13 @@ void merge(value_sizer_t *sizer, node_t *node, node_t *rnode, const internal_nod
     }
 }
 
-void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR const node_t *node) {
+void validate(DEBUG_VAR value_sizer_t *sizer, DEBUG_VAR sized_ptr_t<const node_t> node) {
 #ifndef NDEBUG
-    if (is_leaf(node)) {
-        leaf::validate(sizer, reinterpret_cast<const leaf_node_t *>(node));
-    } else if (node->magic == internal_node_t::expected_magic) {
+    if (is_leaf(node.buf)) {
+        leaf::validate(sizer, sized_ptr_reinterpret_cast<const leaf_node_t>(node));
+    } else if (node.buf->magic == internal_node_t::expected_magic) {
         internal_node::validate(sizer->default_block_size(),
-                                reinterpret_cast<const internal_node_t *>(node));
+                                reinterpret_cast<const internal_node_t *>(node.buf));
     } else {
         unreachable("Invalid leaf node type.");
     }

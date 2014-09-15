@@ -379,7 +379,7 @@ struct region_tree_filler_t {
             buf_lock_t lock(parent, block_ids[lo + i], mode);
             buf_read_t buf_read(&lock);
             const block_id_t *sub_ids
-                = blob::internal_node_block_ids(buf_read.get_data_read());
+                = blob::internal_node_block_ids(buf_read.get_data_read_default());
 
             int64_t suboffset, subsize;
             shrink(parent.cache()->default_block_size(), levels, offset, size, lo + i, &suboffset, &subsize);
@@ -764,7 +764,7 @@ bool blob_t::remove_level(buf_parent_t parent, int *levels_ref) {
             blob::set_small_size(ref_, maxreflen_, bigsize);
         } else {
             buf_read_t lock_read(&lock);
-            const block_id_t *b = blob::internal_node_block_ids(lock_read.get_data_read());
+            const block_id_t *b = blob::internal_node_block_ids(lock_read.get_data_read_default());
 
             // Detach children: they're getting reattached to `parent`.
             int lo;

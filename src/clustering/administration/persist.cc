@@ -334,7 +334,7 @@ auth_semilattice_metadata_t auth_persistent_file_t::read_metadata() {
                           access_t::read);
     buf_read_t sb_read(&superblock);
     const auth_metadata_superblock_t *sb
-        = static_cast<const auth_metadata_superblock_t *>(sb_read.get_data_read());
+        = static_cast<const auth_metadata_superblock_t *>(sb_read.get_data_read_default());
     auth_semilattice_metadata_t metadata;
     read_blob(auth_superblock_version(sb),
               buf_parent_t(&superblock), sb->metadata_blob,
@@ -411,7 +411,7 @@ cluster_semilattice_metadata_t cluster_persistent_file_t::read_metadata() {
     buf_read_t sb_read(&superblock);
 
     const cluster_metadata_superblock_t *sb
-        = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read());
+        = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read_default());
     cluster_semilattice_metadata_t metadata;
     read_metadata_blob(buf_parent_t(&superblock), sb, &metadata);
     return metadata;
@@ -437,7 +437,7 @@ machine_id_t cluster_persistent_file_t::read_machine_id() {
                           access_t::read);
     buf_read_t sb_read(&superblock);
     const cluster_metadata_superblock_t *sb
-        = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read());
+        = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read_default());
     return sb->machine_id;
 }
 
@@ -455,7 +455,7 @@ public:
                                   access_t::read);
             buf_read_t sb_read(&superblock);
             const cluster_metadata_superblock_t *sb
-                = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read());
+                = static_cast<const cluster_metadata_superblock_t *>(sb_read.get_data_read_default());
             read_branch_history_blob(buf_parent_t(&superblock),
                                      sb,
                                      &bh);

@@ -747,12 +747,11 @@ void store_t::clear_sindex(
                 {
                     /* Guarantee that the root is actually empty. */
                     buf_read_t rread(&root_node);
-                    const node_t *node = static_cast<const node_t *>(
-                            rread.get_data_read());
-                    if (node::is_internal(node)) {
+                    sized_ptr_t<const node_t> node = rread.get_data_read<node_t>();
+                    if (node::is_internal(node.buf)) {
                         const internal_node_t *root_int_node
                             = static_cast<const internal_node_t *>(
-                                rread.get_data_read());
+                                rread.get_data_read_default());
                         /* This just prints a warning in release mode for now,
                         because leaking a few blocks is probably better than
                         making the database inaccessible. */

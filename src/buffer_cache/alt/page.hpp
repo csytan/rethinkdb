@@ -8,6 +8,7 @@
 #include "serializer/types.hpp"
 
 class cache_account_t;
+template <class> class sized_ptr_t;
 
 namespace alt {
 
@@ -47,6 +48,8 @@ public:
     void set_page_buf_size(block_size_t block_size, page_cache_t *page_cache);
 
     block_size_t get_page_buf_size();
+
+    void set_page_buf(buf_ptr_t buf_ptr);
 
     // How much memory the block would use, if it were in memory.  (If the block is
     // already in memory, this is how much memory the block is currently
@@ -240,6 +243,9 @@ public:
     // These block, uninterruptibly waiting for buf_ready_signal() to be pulsed.
     block_size_t get_buf_size();
     void *get_buf_write(block_size_t block_size);
+    sized_ptr_t<void> get_sized_buf_write();
+    void set_buf_write(buf_ptr_t new_buf);
+
     const void *get_buf_read();
 
 private:

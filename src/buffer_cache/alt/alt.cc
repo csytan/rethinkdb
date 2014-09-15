@@ -791,7 +791,28 @@ void *buf_write_t::get_data_write(uint32_t block_size) {
     return page_acq_.get_buf_write(block_size_t::make_from_cache(block_size));
 }
 
+sized_ptr_t<void> buf_write_t::help_get_sized_data_write() {
+    page_t *page = lock_->get_held_page_for_write();
+    if (!page_acq_.has()) {
+        page_acq_.init(page, &lock_->cache()->page_cache_,
+                       lock_->txn()->account());
+    }
+    page_acq_.buf_ready_signal()->wait();
+    // RSI: Duplicate code before this line in these two functions.
+    return page_acq_.get_sized_buf_write();
+}
+
+void buf_write_t::set_data_write(buf_ptr_t new_buf) {
+    page_t *page = lock_->get_held_page_for_write();
+    if (!page_acq_.has()) {
+        page_acq_.init(page, &lock_->cache()->page_cache_,
+                       lock_->txn()->account());
+    }
+    page_acq_.buf_ready_signal()->wait();
+    // RSI: Dedup yet more code, before this line, too.
+    return page_acq_.set_buf_write(std::move(new_buf));
+}
+
 void *buf_write_t::get_data_write() {
     return get_data_write(lock_->cache()->default_block_size().value());
 }
-
