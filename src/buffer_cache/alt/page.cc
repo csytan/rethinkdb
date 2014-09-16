@@ -617,6 +617,12 @@ sized_ptr_t<void> page_acq_t::get_sized_buf_write() {
                              page_->get_page_buf_size().value());
 }
 
+buf_ptr_t &page_acq_t::get_buf_ptr_write() {
+    buf_ready_signal_.wait();
+    page_->reset_block_token(page_cache_);
+    return page_->buf();
+}
+
 void page_acq_t::set_buf_write(buf_ptr_t new_buf) {
     buf_ready_signal_.wait();
     page_->reset_block_token(page_cache_);
