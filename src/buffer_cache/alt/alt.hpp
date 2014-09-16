@@ -315,24 +315,23 @@ public:
     explicit buf_read_t(buf_lock_t *lock);
     ~buf_read_t();
 
-    // RSI: Remove this get_data_read function.
-    const void *get_data_read(uint32_t *block_size_out);
-
     template <class T>
     sized_ptr_t<const T> get_data_read() {
         uint32_t block_size;
-        const void *data = get_data_read(&block_size);
+        const void *data = help_get_data_read(&block_size);
         return sized_ptr_t<const T>(static_cast<const T *>(data), block_size);
     }
 
     const void *get_data_read_default() {
         uint32_t block_size;
-        const void *data = get_data_read(&block_size);
+        const void *data = help_get_data_read(&block_size);
         guarantee(block_size == lock_->cache()->default_block_size().value());
         return data;
     }
 
 private:
+    const void *help_get_data_read(uint32_t *block_size_out);
+
     buf_lock_t *lock_;
     alt::page_acq_t page_acq_;
 

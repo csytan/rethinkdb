@@ -17,11 +17,9 @@ public:
     void read_stat_block(buf_lock_t *stat_block) {
         guarantee (stat_block != NULL);
         buf_read_t read(stat_block);
-        uint32_t sb_size;
-        const btree_statblock_t *sb_data =
-            static_cast<const btree_statblock_t *>(read.get_data_read(&sb_size));
-        guarantee(sb_size == BTREE_STATBLOCK_SIZE);
-        key_count = sb_data->population;
+        sized_ptr_t<const btree_statblock_t> sb_data = read.get_data_read<btree_statblock_t>();
+        guarantee(sb_data.block_size == BTREE_STATBLOCK_SIZE);
+        key_count = sb_data.buf->population;
     }
 
     // This is free to call mark_deleted.

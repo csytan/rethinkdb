@@ -460,8 +460,7 @@ void expose_tree_from_block_ids(buf_parent_t parent, access_t mode,
                 // intricate logic), because immediately after creation, the blob has
                 // size max_value_size, but after we've written to the block, its
                 // size could be shrunken.
-                uint32_t block_size;
-                leaf_buf = const_cast<void *>(buf_read->get_data_read(&block_size));
+                leaf_buf = const_cast<void *>(buf_read->get_data_read<void>().buf);
                 acq_group_out->add_buf(buf, buf_read);
             } else {
                 buf_write_t *buf_write = new buf_write_t(buf);
@@ -757,8 +756,7 @@ bool blob_t::remove_level(buf_parent_t parent, int *levels_ref) {
                         access_t::write);
         if (levels == 1) {
             buf_read_t lock_read(&lock);
-            uint32_t unused_block_size;
-            const char *b = blob::leaf_node_data(lock_read.get_data_read(&unused_block_size));
+            const char *b = blob::leaf_node_data(lock_read.get_data_read<void>().buf);
             char *small = blob::small_buffer(ref_, maxreflen_);
             memcpy(small, b, bigsize);
             blob::set_small_size(ref_, maxreflen_, bigsize);

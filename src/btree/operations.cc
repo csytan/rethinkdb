@@ -25,11 +25,9 @@ void real_superblock_t::release() {
 
 block_id_t real_superblock_t::get_root_block_id() {
     buf_read_t read(&sb_buf_);
-    uint32_t sb_size;
-    const btree_superblock_t *sb_data
-        = static_cast<const btree_superblock_t *>(read.get_data_read(&sb_size));
-    guarantee(sb_size == BTREE_SUPERBLOCK_SIZE);
-    return sb_data->root_block;
+    sized_ptr_t<const btree_superblock_t> sb_data = read.get_data_read<btree_superblock_t>();
+    guarantee(sb_data.block_size == BTREE_SUPERBLOCK_SIZE);
+    return sb_data.buf->root_block;
 }
 
 void real_superblock_t::set_root_block_id(const block_id_t new_root_block) {
@@ -41,11 +39,9 @@ void real_superblock_t::set_root_block_id(const block_id_t new_root_block) {
 
 block_id_t real_superblock_t::get_stat_block_id() {
     buf_read_t read(&sb_buf_);
-    uint32_t sb_size;
-    const btree_superblock_t *sb_data =
-        static_cast<const btree_superblock_t *>(read.get_data_read(&sb_size));
-    guarantee(sb_size == BTREE_SUPERBLOCK_SIZE);
-    return sb_data->stat_block;
+    sized_ptr_t<const btree_superblock_t> sb_data = read.get_data_read<btree_superblock_t>();
+    guarantee(sb_data.block_size == BTREE_SUPERBLOCK_SIZE);
+    return sb_data.buf->stat_block;
 }
 
 void real_superblock_t::set_stat_block_id(const block_id_t new_stat_block) {
@@ -57,11 +53,9 @@ void real_superblock_t::set_stat_block_id(const block_id_t new_stat_block) {
 
 block_id_t real_superblock_t::get_sindex_block_id() {
     buf_read_t read(&sb_buf_);
-    uint32_t sb_size;
-    const btree_superblock_t *sb_data =
-        static_cast<const btree_superblock_t *>(read.get_data_read(&sb_size));
-    guarantee(sb_size == BTREE_SUPERBLOCK_SIZE);
-    return sb_data->sindex_block;
+    sized_ptr_t<const btree_superblock_t> sb_data = read.get_data_read<btree_superblock_t>();
+    guarantee(sb_data.block_size == BTREE_SUPERBLOCK_SIZE);
+    return sb_data.buf->sindex_block;
 }
 
 void real_superblock_t::set_sindex_block_id(const block_id_t new_sindex_block) {
@@ -143,14 +137,12 @@ bool get_superblock_metainfo(buf_lock_t *superblock,
 
     {
         buf_read_t read(superblock);
-        uint32_t sb_size;
-        const btree_superblock_t *data
-            = static_cast<const btree_superblock_t *>(read.get_data_read(&sb_size));
-        guarantee(sb_size == BTREE_SUPERBLOCK_SIZE);
+        sized_ptr_t<const btree_superblock_t> data = read.get_data_read<btree_superblock_t>();
+        guarantee(data.block_size == BTREE_SUPERBLOCK_SIZE);
 
         // The const cast is okay because we access the data with access_t::read.
         blob_t blob(superblock->cache()->default_block_size(),
-                    const_cast<char *>(data->metainfo_blob),
+                    const_cast<char *>(data.buf->metainfo_blob),
                     btree_superblock_t::METAINFO_BLOB_MAXREFLEN);
 
         blob_acq_t acq;
@@ -184,15 +176,13 @@ void get_superblock_metainfo(
     std::vector<char> metainfo;
     {
         buf_read_t read(superblock);
-        uint32_t sb_size;
-        const btree_superblock_t *data
-            = static_cast<const btree_superblock_t *>(read.get_data_read(&sb_size));
-        guarantee(sb_size == BTREE_SUPERBLOCK_SIZE);
+        sized_ptr_t<const btree_superblock_t> data = read.get_data_read<btree_superblock_t>();
+        guarantee(data.block_size == BTREE_SUPERBLOCK_SIZE);
 
         // The const cast is okay because we access the data with access_t::read
         // and don't write to the blob.
         blob_t blob(superblock->cache()->default_block_size(),
-                    const_cast<char *>(data->metainfo_blob),
+                    const_cast<char *>(data.buf->metainfo_blob),
                     btree_superblock_t::METAINFO_BLOB_MAXREFLEN);
         blob_acq_t acq;
         buffer_group_t group;
