@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "btree/old_leaf_node.hpp"
-#include "containers/sized_ptr.hpp"
+#include "buffer_cache/sized_ptr.hpp"
 #include "errors.hpp"
 
 struct leaf_node_t;

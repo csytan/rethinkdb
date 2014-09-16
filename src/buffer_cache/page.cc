@@ -3,7 +3,7 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "buffer_cache/page_cache.hpp"
-#include "containers/sized_ptr.hpp"
+#include "buffer_cache/sized_ptr.hpp"
 #include "serializer/serializer.hpp"
 
 namespace alt {

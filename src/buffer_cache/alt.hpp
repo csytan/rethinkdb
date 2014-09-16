@@ -7,9 +7,9 @@
 #include <utility>
 
 #include "buffer_cache/page_cache.hpp"
+#include "buffer_cache/sized_ptr.hpp"
 #include "buffer_cache/types.hpp"
 #include "containers/two_level_array.hpp"
-#include "containers/sized_ptr.hpp"
 #include "repli_timestamp.hpp"
 
 class serializer_t;

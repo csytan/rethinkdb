@@ -1,6 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#ifndef CONTAINERS_SIZED_PTR_HPP_
-#define CONTAINERS_SIZED_PTR_HPP_
+#ifndef BUFFER_CACHE_SIZED_PTR_HPP_
+#define BUFFER_CACHE_SIZED_PTR_HPP_
 
 #include <stdint.h>
 
@@ -24,4 +24,4 @@ sized_ptr_t<T> sized_ptr_reinterpret_cast(sized_ptr_t<U> p) {
     return sized_ptr_t<T>(reinterpret_cast<T *>(p.buf), p.block_size);
 }
 
-#endif  // CONTAINERS_SIZED_PTR_HPP_
+#endif  // BUFFER_CACHE_SIZED_PTR_HPP_
