@@ -2,7 +2,7 @@
 #ifndef BTREE_TYPES_HPP_
 #define BTREE_TYPES_HPP_
 
-#include "buffer_cache/alt/alt.hpp" // for buf_parent_t
+#include "buffer_cache/alt.hpp" // for buf_parent_t
 
 enum class done_traversing_t { NO, YES };
 
