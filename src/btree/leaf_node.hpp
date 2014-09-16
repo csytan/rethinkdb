@@ -16,8 +16,8 @@ class repli_timestamp_t;
 class value_sizer_t;
 
 namespace leaf {
-class iterator;
-class reverse_iterator;
+using old_leaf::iterator;
+using old_leaf::reverse_iterator;
 
 leaf::iterator begin(sized_ptr_t<const leaf_node_t> leaf_node);
 leaf::iterator end(sized_ptr_t<const leaf_node_t> leaf_node);
@@ -51,8 +51,9 @@ void merge(value_sizer_t *sizer, leaf_node_t *left, leaf_node_t *right);
 bool level(value_sizer_t *sizer, int nodecmp_node_with_sib, leaf_node_t *node,
            leaf_node_t *sibling, btree_key_t *replacement_key_out,
            std::vector<const void *> *moved_values_out);
-// RSI: This signature will change.
-bool is_mergable(value_sizer_t *sizer, const leaf_node_t *node, const leaf_node_t *sibling);
+bool is_mergable(value_sizer_t *sizer,
+                 sized_ptr_t<const leaf_node_t> node,
+                 sized_ptr_t<const leaf_node_t> sibling);
 
 bool lookup(value_sizer_t *sizer, sized_ptr_t<const leaf_node_t> node,
             const btree_key_t *key, void *value_out);
@@ -76,23 +77,6 @@ void dump_entries_since_time(value_sizer_t *sizer,
                              repli_timestamp_t minimum_tstamp,
                              repli_timestamp_t maximum_possible_timestamp,
                              entry_reception_callback_t *cb);
-
-// RSI: Implement, obviously.
-class iterator {
-public:
-    bool operator==(const iterator &) const;
-    bool operator!=(const iterator &rhs) const { return !operator==(rhs); }
-    std::pair<const btree_key_t *, const void *> operator*() const;
-    void step();
-};
-
-class reverse_iterator {
-public:
-    bool operator==(const reverse_iterator &) const;
-    bool operator!=(const reverse_iterator &rhs) const { return !operator==(rhs); }
-    std::pair<const btree_key_t *, const void *> operator*() const;
-    void step();
-};
 
 }  // namespace leaf
 

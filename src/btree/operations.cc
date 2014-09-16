@@ -555,7 +555,7 @@ void check_and_handle_underfull(value_sizer_t *sizer,
         } else {
             buf_read_t buf_read(buf);
             sized_ptr_t<const node_t> node = buf_read.get_data_read<node_t>();
-            node_is_underfull = node::is_underfull(sizer, node.buf);
+            node_is_underfull = node::is_underfull(sizer, node);
         }
     }
     if (node_is_underfull) {

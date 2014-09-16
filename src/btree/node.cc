@@ -27,14 +27,14 @@ bool is_underfull(value_sizer_t *sizer, sized_ptr_t<const node_t> node) {
     }
 }
 
-bool is_mergable(value_sizer_t *sizer, const node_t *node, const node_t *sibling, const internal_node_t *parent) {
-    if (is_leaf(node)) {
-        return leaf::is_mergable(sizer, reinterpret_cast<const leaf_node_t *>(node), reinterpret_cast<const leaf_node_t *>(sibling));
+bool is_mergable(value_sizer_t *sizer, sized_ptr_t<const node_t> node, sized_ptr_t<const node_t> sibling, const internal_node_t *parent) {
+    if (is_leaf(node.buf)) {
+        return leaf::is_mergable(sizer, sized_ptr_reinterpret_cast<const leaf_node_t>(node), sized_ptr_reinterpret_cast<const leaf_node_t>(sibling));
     } else {
-        rassert(is_internal(node));
+        rassert(is_internal(node.buf));
         return internal_node::is_mergable(sizer->default_block_size(),
-                                          reinterpret_cast<const internal_node_t *>(node),
-                                          reinterpret_cast<const internal_node_t *>(sibling),
+                                          reinterpret_cast<const internal_node_t *>(node.buf),
+                                          reinterpret_cast<const internal_node_t *>(sibling.buf),
                                           parent);
     }
 }
