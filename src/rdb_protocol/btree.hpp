@@ -10,6 +10,7 @@
 
 #include "backfill_progress.hpp"
 #include "btree/node.hpp"
+#include "buffer_cache/alt.hpp"
 #include "concurrency/auto_drainer.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/changes.hpp"
