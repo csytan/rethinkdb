@@ -4,8 +4,6 @@
 
 #include <stdint.h>
 
-// RSI: Move to the cache?  Idk.
-
 template <class T>
 class sized_ptr_t {
 public:

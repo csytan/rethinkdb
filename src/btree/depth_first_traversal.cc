@@ -133,7 +133,8 @@ bool btree_depth_first_traversal(counted_t<counted_buf_lock_t> block,
     auto read = make_counted<counted_buf_read_t>(block.get());
     sized_ptr_t<const node_t> node = read->get_data_read<node_t>();
     if (node::is_internal(node.buf)) {
-        // RSI: It would be nice to assert that node.block_size had the right value here.
+        guarantee(node.block_size == block->cache()->default_block_size().value());
+
         const internal_node_t *inode = reinterpret_cast<const internal_node_t *>(node.buf);
         int start_index = internal_node::get_offset_index(inode, range.left.btree_key());
         int end_index;
