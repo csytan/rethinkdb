@@ -238,10 +238,6 @@ int64_t max_end_offset(default_block_size_t block_size, int levels, int maxrefle
     }
 }
 
-int64_t clamp(int64_t x, int64_t lo, int64_t hi) {
-    return x < lo ? lo : x > hi ? hi : x;
-}
-
 
 void shrink(default_block_size_t block_size, int levels, int64_t offset, int64_t size, int index, int64_t *suboffset_out, int64_t *subsize_out) {
     int64_t step = stepsize(block_size, levels);
@@ -249,8 +245,8 @@ void shrink(default_block_size_t block_size, int levels, int64_t offset, int64_t
     int64_t clamp_low = index * step;
     int64_t clamp_high = clamp_low + step;
 
-    int64_t suboffset = clamp(offset, clamp_low, clamp_high);
-    int64_t subsize = clamp(offset + size, clamp_low, clamp_high) - suboffset;
+    int64_t suboffset = clamp<int64_t>(offset, clamp_low, clamp_high);
+    int64_t subsize = clamp<int64_t>(offset + size, clamp_low, clamp_high) - suboffset;
 
     *suboffset_out = suboffset - clamp_low;
     *subsize_out = subsize;

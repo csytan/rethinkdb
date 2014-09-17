@@ -1,12 +1,12 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/terms/terms.hpp"
 
+#include "debug.hpp"
+#include "math.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/op.hpp"
 #include "stl_utils.hpp"
-
-#include "debug.hpp"
 
 namespace ql {
 
