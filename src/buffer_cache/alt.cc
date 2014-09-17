@@ -792,6 +792,16 @@ void *buf_write_t::get_data_write(uint32_t block_size) {
     return page_acq_.get_buf_write(block_size_t::make_from_cache(block_size));
 }
 
+uint32_t buf_write_t::get_data_size() {
+    page_t *page = lock_->get_held_page_for_write();
+    if (!page_acq_.has()) {
+        page_acq_.init(page, &lock_->cache()->page_cache_,
+                       lock_->txn()->account());
+    }
+    page_acq_.buf_ready_signal()->wait();
+    return page_acq_.get_buf_size().value();
+}
+
 buf_ptr_t &buf_write_t::get_databuf_write() {
     page_t *page = lock_->get_held_page_for_write();
     if (!page_acq_.has()) {

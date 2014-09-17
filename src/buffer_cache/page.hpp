@@ -45,7 +45,7 @@ public:
 
     // These may not be called until the page_acq_t's buf_ready_signal is pulsed.
     void *get_page_buf(page_cache_t *page_cache);
-    buf_ptr_t &buf() { return buf_; }
+    buf_ptr_t &buf(page_cache_t *page_cache);
     void reset_block_token(page_cache_t *page_cache);
     void set_page_buf_size(block_size_t block_size, page_cache_t *page_cache);
 

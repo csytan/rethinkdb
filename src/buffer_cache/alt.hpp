@@ -348,6 +348,7 @@ public:
     // RSI: Change this.  Change how you write in general?  Somewhat...
     void *get_data_write();
 
+    uint32_t get_data_size();
     buf_ptr_t &get_databuf_write();
 
     void set_data_write(buf_ptr_t new_buf);

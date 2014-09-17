@@ -494,6 +494,12 @@ uint32_t page_t::hypothetical_memory_usage(page_cache_t *page_cache) const {
     }
 }
 
+buf_ptr_t &page_t::buf(page_cache_t *page_cache) {
+    rassert(buf_.has());
+    access_time_ = page_cache->evicter().next_access_time();
+    return buf_;
+}
+
 void *page_t::get_page_buf(page_cache_t *page_cache) {
     rassert(buf_.has());
     access_time_ = page_cache->evicter().next_access_time();
@@ -621,7 +627,7 @@ sized_ptr_t<void> page_acq_t::get_sized_buf_write() {
 buf_ptr_t &page_acq_t::get_buf_ptr_write() {
     buf_ready_signal_.wait();
     page_->reset_block_token(page_cache_);
-    return page_->buf();
+    return page_->buf(page_cache_);
 }
 
 void page_acq_t::set_buf_write(buf_ptr_t new_buf) {
