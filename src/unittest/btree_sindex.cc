@@ -16,6 +16,30 @@
 
 namespace unittest {
 
+bool sufficiently_similar(const std::map<sindex_name_t, secondary_index_t> &a,
+                          const std::map<sindex_name_t, secondary_index_t> &b) {
+    auto a_it = a.begin();
+    auto b_it = b.begin();
+    for (;;) {
+        if (a_it == a.end()) {
+            return b_it == b.end();
+        }
+        if (b_it == b.end()) {
+            return false;
+        }
+        if (!(a_it->first == b_it->first)) {
+            return false;
+        }
+        if (a_it->second.superblock != b_it->second.superblock
+            || a_it->second.opaque_definition != b_it->second.opaque_definition) {
+            return false;
+        }
+        ++a_it;
+        ++b_it;
+    }
+    return true;
+}
+
 TPTEST(BTreeSindex, LowLevelOps) {
     temp_file_t temp_file;
 
@@ -100,7 +124,7 @@ TPTEST(BTreeSindex, LowLevelOps) {
         std::map<sindex_name_t, secondary_index_t> sindexes;
         get_secondary_indexes(&sindex_block, &sindexes);
 
-        ASSERT_TRUE(sindexes == mirror);
+        ASSERT_TRUE(sufficiently_similar(sindexes, mirror));
     }
 }
 
