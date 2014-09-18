@@ -129,10 +129,18 @@ endif
 build-osx: DESTDIR = $(OSX_PACKAGE_DIR)/pkg
 build-osx: SPLIT_SYMBOLS = 1
 build-osx: install-osx
+	set -e; /usr/bin/otool -L $(OSX_PACKAGE_DIR)/pkg/$(FULL_SERVER_EXEC_NAME) | \
+		awk '/^\t/ { sub(/ \(.+\)/, ""); print }' | while read LINE; do \
+			case "$$LINE" in $(BUILD_DIR_ABS)/*) \
+				echo '***' rethinkdb binary links to non-system dylib: $$LINE; \
+				exit 1;; \
+			esac \
+		done
 	mkdir -p $(OSX_PACKAGE_DIR)/install
 	pkgbuild --root $(OSX_PACKAGE_DIR)/pkg --identifier rethinkdb $(OSX_PACKAGE_DIR)/install/rethinkdb.pkg
 	mkdir $(OSX_PACKAGE_DIR)/dmg
 	$(PRODUCT_BUILD)
+	
 # TODO: the PREFIX should not be hardcoded in the uninstall script 
 	cp $(OSX_PACKAGING_DIR)/uninstall-rethinkdb.sh $(OSX_PACKAGE_DIR)/dmg/uninstall-rethinkdb.sh
 	chmod +x $(OSX_PACKAGE_DIR)/dmg/uninstall-rethinkdb.sh
@@ -183,9 +191,6 @@ endif
 	    cp -pPR $(path)/. $(dir) $(newline) ))
 
 $(DIST_PACKAGE_TGZ): dist-dir
-	$P CHMOD $(DIST_DIR)
-	find $(DIST_DIR) -type f -exec chmod 644 {} \;
-	find $(DIST_DIR) -type d -exec chmod 755 {} \;
 	$P TAR $@ $(DIST_DIR)
 	cd $(dir $(DIST_DIR)) && tar zfc $(notdir $@) $(notdir $(DIST_DIR))
 
