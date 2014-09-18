@@ -1,5 +1,6 @@
-#ifndef BUFFER_CACHE_ALT_CACHE_BALANCER_HPP_
-#define BUFFER_CACHE_ALT_CACHE_BALANCER_HPP_
+// Copyright 2010-2014 RethinkDB, all rights reserved.
+#ifndef BUFFER_CACHE_CACHE_BALANCER_HPP_
+#define BUFFER_CACHE_CACHE_BALANCER_HPP_
 
 #include <stdint.h>
 #include <set>
@@ -151,4 +152,4 @@ private:
     DISABLE_COPYING(alt_cache_balancer_t);
 };
 
-#endif  // BUFFER_CACHE_ALT_CACHE_BALANCER_HPP_
+#endif  // BUFFER_CACHE_CACHE_BALANCER_HPP_

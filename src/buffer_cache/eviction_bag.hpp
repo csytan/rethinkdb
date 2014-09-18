@@ -1,5 +1,6 @@
-#ifndef BUFFER_CACHE_ALT_EVICTION_BAG_HPP_
-#define BUFFER_CACHE_ALT_EVICTION_BAG_HPP_
+// Copyright 2010-2014 RethinkDB, all rights reserved.
+#ifndef BUFFER_CACHE_EVICTION_BAG_HPP_
+#define BUFFER_CACHE_EVICTION_BAG_HPP_
 
 #include <stdint.h>
 
@@ -44,4 +45,4 @@ private:
 
 }  // namespace alt
 
-#endif  // BUFFER_CACHE_ALT_EVICTION_BAG_HPP_
+#endif  // BUFFER_CACHE_EVICTION_BAG_HPP_

@@ -1,8 +1,9 @@
-#include "buffer_cache/alt/eviction_bag.hpp"
+// Copyright 2010-2014 RethinkDB, all rights reserved.
+#include "buffer_cache/eviction_bag.hpp"
 
 #include <inttypes.h>
 
-#include "buffer_cache/alt/page.hpp"
+#include "buffer_cache/page.hpp"
 #include "utils.hpp"
 
 namespace alt {

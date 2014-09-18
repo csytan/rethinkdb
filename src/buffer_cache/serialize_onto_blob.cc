@@ -1,4 +1,5 @@
-#include "buffer_cache/alt/serialize_onto_blob.hpp"
+// Copyright 2010-2014 RethinkDB, all rights reserved.
+#include "buffer_cache/serialize_onto_blob.hpp"
 
 void write_onto_blob(buf_parent_t parent, blob_t *blob,
                      const write_message_t &wm) {

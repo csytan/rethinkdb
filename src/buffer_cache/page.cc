@@ -1,7 +1,8 @@
-#include "buffer_cache/alt/page.hpp"
+// Copyright 2010-2014 RethinkDB, all rights reserved.
+#include "buffer_cache/page.hpp"
 
 #include "arch/runtime/coroutines.hpp"
-#include "buffer_cache/alt/page_cache.hpp"
+#include "buffer_cache/page_cache.hpp"
 #include "containers/sized_ptr.hpp"
 #include "serializer/serializer.hpp"
 
