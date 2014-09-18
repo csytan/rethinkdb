@@ -44,8 +44,7 @@ public:
     void remove_waiter(page_acq_t *acq);
 
     // These may not be called until the page_acq_t's buf_ready_signal is pulsed.
-    void *get_page_buf(page_cache_t *page_cache);
-    buf_ptr_t &buf(page_cache_t *page_cache);
+    buf_ptr_t &get_page_buf(page_cache_t *page_cache);
     void reset_block_token(page_cache_t *page_cache);
     void set_page_buf_size(block_size_t block_size, page_cache_t *page_cache);
 
@@ -243,6 +242,7 @@ public:
     bool has() const;
 
     // These block, uninterruptibly waiting for buf_ready_signal() to be pulsed.
+    // RSI: Which of these are redundant with get_buf_ptr_write?
     block_size_t get_buf_size();
     void *get_buf_write(block_size_t block_size);
     sized_ptr_t<void> get_sized_buf_write();

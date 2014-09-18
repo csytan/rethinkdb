@@ -494,16 +494,10 @@ uint32_t page_t::hypothetical_memory_usage(page_cache_t *page_cache) const {
     }
 }
 
-buf_ptr_t &page_t::buf(page_cache_t *page_cache) {
+buf_ptr_t &page_t::get_page_buf(page_cache_t *page_cache) {
     rassert(buf_.has());
     access_time_ = page_cache->evicter().next_access_time();
     return buf_;
-}
-
-void *page_t::get_page_buf(page_cache_t *page_cache) {
-    rassert(buf_.has());
-    access_time_ = page_cache->evicter().next_access_time();
-    return buf_.cache_data();
 }
 
 void page_t::reset_block_token(DEBUG_VAR page_cache_t *page_cache) {
@@ -614,20 +608,20 @@ void *page_acq_t::get_buf_write(block_size_t block_size) {
     buf_ready_signal_.wait();
     page_->reset_block_token(page_cache_);
     page_->set_page_buf_size(block_size, page_cache_);
-    return page_->get_page_buf(page_cache_);
+    return page_->get_page_buf(page_cache_).cache_data();
 }
 
 sized_ptr_t<void> page_acq_t::get_sized_buf_write() {
     buf_ready_signal_.wait();
     page_->reset_block_token(page_cache_);
-    return sized_ptr_t<void>(page_->get_page_buf(page_cache_),
-                             page_->get_page_buf_size().value());
+    buf_ptr_t *buf = &page_->get_page_buf(page_cache_);
+    return sized_ptr_t<void>(buf->cache_data(), buf->block_size().value());
 }
 
 buf_ptr_t &page_acq_t::get_buf_ptr_write() {
     buf_ready_signal_.wait();
     page_->reset_block_token(page_cache_);
-    return page_->buf(page_cache_);
+    return page_->get_page_buf(page_cache_);
 }
 
 void page_acq_t::set_buf_write(buf_ptr_t new_buf) {
@@ -638,7 +632,7 @@ void page_acq_t::set_buf_write(buf_ptr_t new_buf) {
 
 const void *page_acq_t::get_buf_read() {
     buf_ready_signal_.wait();
-    return page_->get_page_buf(page_cache_);
+    return page_->get_page_buf(page_cache_).cache_data();
 }
 
 page_ptr_t::page_ptr_t() : page_(NULL) {
