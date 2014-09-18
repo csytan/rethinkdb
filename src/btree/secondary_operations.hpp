@@ -44,7 +44,6 @@ struct secondary_index_t {
      * switching targets. This issue is described in more detail here:
      * https://github.com/rethinkdb/rethinkdb/issues/657 */
     uuid_u id;
-
 };
 
 RDB_DECLARE_SERIALIZABLE(secondary_index_t);
@@ -72,7 +71,7 @@ struct sindex_name_t {
 
 RDB_DECLARE_SERIALIZABLE(sindex_name_t);
 
-//Secondary Index functions
+// Secondary Index functions
 
 /* Note if this function is called after secondary indexes have been added it
  * will leak blocks (and also make those secondary indexes unusable.) There's
