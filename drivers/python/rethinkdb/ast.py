@@ -7,6 +7,11 @@ import time
 import re
 import base64
 import binascii
+try:
+    import asyncio
+except ImportError:
+    # Python 2
+    asyncio = None
 import json as py_json
 from threading import Lock
 
@@ -93,6 +98,14 @@ class RqlQuery(object):
                 raise RqlDriverError("RqlQuery.run must be given a connection to run on.")
 
         return c._start(self, **global_optargs)
+        
+    def run_async(self, **global_optargs):
+        from .net import connect
+        def job():
+            print('job started')
+            c = connect('localhost', 28015)
+            return c._start(self, **global_optargs)
+        return self.executor.submit(job)
 
     def __str__(self):
         qp = QueryPrinter(self)
