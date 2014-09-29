@@ -1,27 +1,22 @@
+import asyncio
 import datetime
+
 import rethinkdb as r
 
 
-def test_async():
-    futures = []
-    for i in range(500):
-        futures.append(
-            r.db('nohuck').table('videos').limit(10).run_async())
-    
-    while len(futures):
-        finished = [f for f in futures if f.done()]
-        futures = [f for f in futures if not f.done()]
-        for f in finished:
-            [item for item in f.result()]
-            print('finished')
-        print(len(futures))
-    
+query = r.db('nohuck').table('videos').limit(10)
+query = (r.db('nohuck')
+    .table('videos')
+    .map(lambda video: video['tags'])
+    .reduce(lambda left, right: left.add(right)))
+
 def test_sync():
-    for i in range(500):
-        r.connect('localhost', 28015).repl()
-        result = r.db('nohuck').table('videos').limit(10).run()
-        [item for item in result]
-    print('done')
+    import sys
+    # use system rethinkdb driver
+    sys.path.pop(0)
+    for i in range(100):
+        r.connect('127.0.0.1', 28015).repl()
+        result = query.run()
     
 
 def simple_timer(cb, loops=1):
@@ -35,4 +30,19 @@ def simple_timer(cb, loops=1):
         print(seconds)
         
 
-simple_timer(test_sync, 3)
+def test_async():
+    futures = []
+    @asyncio.coroutine
+    def run():
+        for i in range(100):
+            futures.append(query.run_async())
+        for f in futures:
+            yield from f
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run())
+    #print(futures)
+
+
+simple_timer(test_sync, 4)
+
+

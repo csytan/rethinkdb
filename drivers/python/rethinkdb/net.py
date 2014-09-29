@@ -2,6 +2,7 @@
 
 __all__ = ['connect', 'Connection', 'Cursor']
 
+import asyncio
 import errno
 import socket
 import struct
@@ -120,6 +121,7 @@ class Cursor(object):
 class Connection(object):
     def __init__(self, host, port, db, auth_key, timeout):
         self.socket = None
+        self.loop = asyncio.get_event_loop()
         self.host = host
         self.next_token = 1
         self.db = db
@@ -133,7 +135,7 @@ class Connection(object):
         except ValueError as err:
           raise RqlDriverError("Could not convert port %s to an integer." % port)
 
-        self.reconnect(noreply_wait=False)
+        self.reconnect_blocking(noreply_wait=False)
 
     def __enter__(self):
         return self
@@ -143,23 +145,26 @@ class Connection(object):
 
     def use(self, db):
         self.db = db
-
+    
+    @asyncio.coroutine
     def reconnect(self, noreply_wait=True):
         self.close(noreply_wait)
 
         try:
-            self.socket = socket.create_connection((self.host, self.port), self.timeout)
+            self.socket = socket.socket()
+            yield from self.loop.sock_connect(self.socket, (self.host, self.port))
+            # TODO: missing self.timeout, loop.sock_connect doesn't have the option
         except Exception as err:
             raise RqlDriverError("Could not connect to %s:%s. Error: %s" % (self.host, self.port, err))
 
-        self._sock_sendall(struct.pack("<L", p.VersionDummy.Version.V0_3))
-        self._sock_sendall(struct.pack("<L", len(self.auth_key)) + str.encode(self.auth_key, 'ascii'))
-        self._sock_sendall(struct.pack("<L", p.VersionDummy.Protocol.JSON))
+        yield from self._sock_sendall(struct.pack("<L", p.VersionDummy.Version.V0_3))
+        yield from self._sock_sendall(struct.pack("<L", len(self.auth_key)) + str.encode(self.auth_key, 'ascii'))
+        yield from self._sock_sendall(struct.pack("<L", p.VersionDummy.Protocol.JSON))
 
         # Read out the response from the server, which will be a null-terminated string
         response = b""
         while True:
-            char = self._sock_recv(1)
+            char = yield from self._sock_recv(1)
             if char == b"\0":
                 break
             response += char
@@ -172,7 +177,12 @@ class Connection(object):
 
         # Clear timeout so we don't timeout on long running queries
         self.socket.settimeout(None)
-
+    
+    def reconnect_blocking(self, *args, **kwargs):
+        fut = self.reconnect(*args, **kwargs)
+        new_loop = asyncio.new_event_loop()
+        return new_loop.run_until_complete(fut)
+        
     def close(self, noreply_wait=True):
         if self.socket is not None:
             if noreply_wait:
@@ -196,7 +206,7 @@ class Connection(object):
         query = Query(pQuery.NOREPLY_WAIT, token, None, None)
 
         # Send the request
-        return self._send_query(query)
+        self._send_query_blocking(query)
 
     # Not thread safe. Sets this connection as global state that will be used
     # by subsequence calls to `query.run`. Useful for trying out RethinkDB in
@@ -206,20 +216,10 @@ class Connection(object):
         return self
 
     def _sock_recv(self, length):
-        while True:
-            try:
-                return self.socket.recv(length)
-            except IOError as e:
-                if e.errno != errno.EINTR:
-                    raise
+        return self.loop.sock_recv(self.socket, length)
 
     def _sock_sendall(self, data):
-        while True:
-            try:
-                return self.socket.sendall(data)
-            except IOError as e:
-                if e.errno != errno.EINTR:
-                    raise
+        return self.loop.sock_sendall(self.socket, data)
 
     def _start(self, term, **global_optargs):
         # Set global opt args
@@ -249,7 +249,7 @@ class Connection(object):
 
     def _continue_cursor(self, cursor):
         self._async_continue_cursor(cursor)
-        self._handle_cursor_response(self._read_response(cursor.query.token))
+        self._handle_cursor_response(self.block(self._read_response(cursor.query.token)))
 
     def _async_continue_cursor(self, cursor):
         if cursor.outstanding_requests != 0:
@@ -257,15 +257,20 @@ class Connection(object):
 
         cursor.outstanding_requests = 1
         query = Query(pQuery.CONTINUE, cursor.query.token, None, None)
-        self._send_query(query, cursor.opts, async=True)
+        self._send_query_blocking(query, cursor.opts, async=True)
 
     def _end_cursor(self, cursor):
         self.cursor_cache[cursor.query.token].outstanding_requests += 1
 
         query = Query(pQuery.STOP, cursor.query.token, None, None)
         self._send_query(query, async=True)
-        self._handle_cursor_response(self._read_response(cursor.query.token))
+        self._handle_cursor_response(self.block(self._read_response(cursor.query.token)))
 
+    def block(self, fut):
+        new_loop = asyncio.new_event_loop()
+        return new_loop.run_until_complete(fut)
+
+    @asyncio.coroutine
     def _read_response(self, token):
         # We may get an async continue result, in which case we save it and read the next response
         while True:
@@ -273,7 +278,7 @@ class Connection(object):
             try:
                 response_header = b''
                 while len(response_header) < 12:
-                    chunk = self._sock_recv(12 - len(response_header))
+                    chunk = yield from self._sock_recv(12 - len(response_header))
                     if len(chunk) == 0:
                         raise RqlDriverError("Connection is closed.")
                     response_header += chunk
@@ -283,14 +288,14 @@ class Connection(object):
                 (response_token,response_len,) = struct.unpack("<qL", response_header)
 
                 while len(response_buf) < response_len:
-                    chunk = self._sock_recv(response_len - len(response_buf))
+                    chunk = yield from self._sock_recv(response_len - len(response_buf))
                     if len(chunk) == 0:
                         raise RqlDriverError("Connection is broken.")
                     response_buf += chunk
             except KeyboardInterrupt as err:
                 # When interrupted while waiting for a response cancel the outstanding
                 # requests by resetting this connection
-                self.reconnect()
+                yield from self.reconnect()
                 raise err
 
             # Construct response
@@ -318,7 +323,8 @@ class Connection(object):
             message = response.data[0]
             frames = response.backtrace
             raise RqlClientError(message, term, frames)
-
+    
+    @asyncio.coroutine
     def _send_query(self, query, opts={}, async=False):
         # Error if this connection has closed
         if self.socket is None:
@@ -329,13 +335,13 @@ class Connection(object):
         # Send json
         query_str = query.serialize().encode('utf-8')
         query_header = struct.pack("<QL", query.token, len(query_str))
-        self._sock_sendall(query_header + query_str)
+        yield from self._sock_sendall(query_header + query_str)
 
         if async or ('noreply' in opts and opts['noreply']):
             return None
 
         # Get response
-        response = self._read_response(query.token)
+        response = yield from self._read_response(query.token)
         self._check_error_response(response, query.term)
 
         if response.type == pResponse.SUCCESS_PARTIAL or \
@@ -361,6 +367,12 @@ class Connection(object):
             value = {"value": value, "profile": response.profile}
 
         return value
+        
+    def _send_query_blocking(self, *args, **kwargs):
+        fut = self._send_query(*args, **kwargs)
+        new_loop = asyncio.new_event_loop()
+        return new_loop.run_until_complete(fut)
+
 
 def connect(host='localhost', port=28015, db=None, auth_key="", timeout=20):
     return Connection(host, port, db, auth_key, timeout)

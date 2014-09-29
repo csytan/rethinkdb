@@ -97,16 +97,17 @@ class RqlQuery(object):
             else:
                 raise RqlDriverError("RqlQuery.run must be given a connection to run on.")
 
-        return c._start(self, **global_optargs)
+        fut = c._start(self, **global_optargs)
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(fut)
         
     def run_async(self, **global_optargs):
-        from .net import connect
-        def job():
-            print('job started')
-            c = connect('localhost', 28015)
-            return c._start(self, **global_optargs)
-        return self.executor.submit(job)
-
+        if not repl.default_connection:
+            from . import net
+            repl.default_connection = net.connect('127.0.0.1', 28015)
+        c = repl.default_connection
+        return c._start(self, **global_optargs)
+        
     def __str__(self):
         qp = QueryPrinter(self)
         return qp.print_query()
